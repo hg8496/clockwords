@@ -1,0 +1,9 @@
+[package]
+name = "relative-human-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+regex = "1"
+aho-corasick = "1"
