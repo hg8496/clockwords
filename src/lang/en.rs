@@ -89,8 +89,8 @@ fn build_rules() -> Vec<GrammarRule> {
                     resolve::to_24h(hour, ampm)
                 };
                 if h > 23 { return None; }
-                let date = resolve::resolve_day_offset(offset, now);
-                Some(resolve::resolve_time_on_date(date, h, 0))
+                let date = resolve::resolve_day_offset(offset, now)?;
+                resolve::resolve_time_on_date(date, h, 0)
             },
         },
         // --- Combined: "yesterday between 9 and 12 (o'clock)" ---
@@ -105,8 +105,8 @@ fn build_rules() -> Vec<GrammarRule> {
                 let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
                 if from > 23 || to > 23 { return None; }
-                let date = resolve::resolve_day_offset(offset, now);
-                Some(resolve::resolve_time_range_on_date(date, from, to))
+                let date = resolve::resolve_day_offset(offset, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
             },
         },
         // --- Relative days ---
@@ -115,7 +115,7 @@ fn build_rules() -> Vec<GrammarRule> {
             kind: ExpressionKind::RelativeDay,
             resolver: |caps, now| {
                 let offset = day_keyword_offset(caps.name("day")?.as_str())?;
-                Some(resolve::resolve_relative_day(offset, now))
+                resolve::resolve_relative_day(offset, now)
             },
         },
         // --- Day offset: "in 4 days" ---
@@ -127,7 +127,7 @@ fn build_rules() -> Vec<GrammarRule> {
             kind: ExpressionKind::RelativeDayOffset,
             resolver: |caps, now| {
                 let n = parse_num(caps.name("num")?.as_str())?;
-                Some(resolve::resolve_relative_day(n as i64, now))
+                resolve::resolve_relative_day(n as i64, now)
             },
         },
         // --- Day offset: "two days ago" ---
@@ -139,7 +139,7 @@ fn build_rules() -> Vec<GrammarRule> {
             kind: ExpressionKind::RelativeDayOffset,
             resolver: |caps, now| {
                 let n = parse_num(caps.name("num")?.as_str())?;
-                Some(resolve::resolve_relative_day(-(n as i64), now))
+                resolve::resolve_relative_day(-(n as i64), now)
             },
         },
         // --- Time spec: "at 3pm", "at 3 am", "13 o'clock" ---
@@ -158,7 +158,7 @@ fn build_rules() -> Vec<GrammarRule> {
                     resolve::to_24h(hour, ampm)
                 };
                 if h > 23 { return None; }
-                Some(resolve::resolve_time_today(h, 0, now))
+                resolve::resolve_time_today(h, 0, now)
             },
         },
         // --- Time range: "the last hour/minute" ---
@@ -167,7 +167,7 @@ fn build_rules() -> Vec<GrammarRule> {
             kind: ExpressionKind::TimeRange,
             resolver: |caps, now| {
                 let unit = caps.name("unit")?.as_str().to_lowercase();
-                Some(resolve::resolve_last_duration(&unit, now))
+                resolve::resolve_last_duration(&unit, now)
             },
         },
         // --- Time range: "between 9 and 12 (o'clock)" ---
@@ -181,7 +181,7 @@ fn build_rules() -> Vec<GrammarRule> {
                 let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
                 if from > 23 || to > 23 { return None; }
-                Some(resolve::resolve_time_range_today(from, to, now))
+                resolve::resolve_time_range_today(from, to, now)
             },
         },
     ]
