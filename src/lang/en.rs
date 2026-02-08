@@ -19,6 +19,7 @@ const KEYWORDS: &[&str] = &[
     "am",
     "pm",
     "between",
+    "from",
     "at",
     "in",
     "day",
@@ -96,12 +97,98 @@ fn parse_num(s: &str) -> Option<u32> {
     s.parse::<u32>().ok().or_else(|| parse_number_en(&s.to_lowercase()))
 }
 
+/// Shared day pattern for weekdays
+const WEEKDAY_PAT: &str = r"monday|tuesday|wednesday|thursday|friday|saturday|sunday";
+
+/// Resolve a weekday direction string to -1, 0, or 1
+fn weekday_direction(s: &str) -> Option<i64> {
+    match s.to_lowercase().as_str() {
+        "next" => Some(1),
+        "last" => Some(-1),
+        "this" => Some(0),
+        _ => None,
+    }
+}
+
+/// Resolve hour+ampm to 24h, handling am/pm/o'clock
+fn resolve_hour(hour: u32, ampm: &str) -> Option<u32> {
+    let h = if ampm.to_lowercase().starts_with("o") {
+        hour
+    } else {
+        resolve::to_24h(hour, ampm)
+    };
+    if h > 23 { None } else { Some(h) }
+}
+
 fn build_rules() -> Vec<GrammarRule> {
     // Number pattern for inline use
     let num = NUM_WORD_PATTERN;
+    let wd = WEEKDAY_PAT;
 
     vec![
-        // --- Combined: "yesterday at 3pm" / "tomorrow at 13 o'clock" ---
+        // ============================================================
+        //  Combined: Weekday + time spec
+        //  "last Friday at 3pm", "next Monday at 13 o'clock"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+at\s+(?P<hour>\d{{1,2}})\s*(?P<ampm>am|pm|o'?clock)\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_on_date(date, h, 0)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday + between range
+        //  "last Friday between 9 and 12"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+between\s+(?P<from>{num})\s+and\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday + from/to range
+        //  "last Friday from 9 to eleven", "next Monday from 9 to 5"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+from\s+(?P<from>{num})\s+to\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
+        // ============================================================
+        //  Combined: relative day + at time
+        //  "yesterday at 3pm", "tomorrow at 13 o'clock"
+        // ============================================================
         GrammarRule {
             pattern: Regex::new(
                 r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+at\s+(?P<hour>\d{1,2})\s*(?P<ampm>am|pm|o'?clock)\b"
@@ -111,28 +198,44 @@ fn build_rules() -> Vec<GrammarRule> {
             resolver: |caps, now| {
                 let offset = day_keyword_offset(caps.name("day")?.as_str())?;
                 let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                let ampm = caps.name("ampm")?.as_str();
-                let h = if ampm.to_lowercase().starts_with("o") {
-                    hour
-                } else {
-                    resolve::to_24h(hour, ampm)
-                };
-                if h > 23 { return None; }
+                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
                 let date = resolve::resolve_day_offset(offset, now)?;
                 resolve::resolve_time_on_date(date, h, 0)
             },
         },
-        // --- Combined: "yesterday between 9 and 12 (o'clock)" ---
+        // ============================================================
+        //  Combined: relative day + between range
+        //  "yesterday between 9 and 12 (o'clock)"
+        // ============================================================
         GrammarRule {
-            pattern: Regex::new(
-                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+between\s+(?P<from>\d{1,2})\s+and\s+(?P<to>\d{1,2})\s*(?:o'?clock)?\b"
-            )
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+between\s+(?P<from>{num})\s+and\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
             .unwrap(),
             kind: ExpressionKind::Combined,
             resolver: |caps, now| {
                 let offset = day_keyword_offset(caps.name("day")?.as_str())?;
-                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
-                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_day_offset(offset, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
+        // ============================================================
+        //  Combined: relative day + from/to range
+        //  "yesterday from 9 to 11", "tomorrow from nine to five"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+from\s+(?P<from>{num})\s+to\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let offset = day_keyword_offset(caps.name("day")?.as_str())?;
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
                 if from > 23 || to > 23 { return None; }
                 let date = resolve::resolve_day_offset(offset, now)?;
                 resolve::resolve_time_range_on_date(date, from, to)
@@ -180,13 +283,7 @@ fn build_rules() -> Vec<GrammarRule> {
             kind: ExpressionKind::TimeSpecification,
             resolver: |caps, now| {
                 let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                let ampm = caps.name("ampm")?.as_str();
-                let h = if ampm.to_lowercase().starts_with("o") {
-                    hour
-                } else {
-                    resolve::to_24h(hour, ampm)
-                };
-                if h > 23 { return None; }
+                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
                 resolve::resolve_time_today(h, 0, now)
             },
         },
@@ -201,33 +298,41 @@ fn build_rules() -> Vec<GrammarRule> {
         },
         // --- Time range: "between 9 and 12 (o'clock)" ---
         GrammarRule {
-            pattern: Regex::new(
-                r"(?i)\bbetween\s+(?P<from>\d{1,2})\s+and\s+(?P<to>\d{1,2})\s*(?:o'?clock)?\b"
-            )
+            pattern: Regex::new(&format!(
+                r"(?i)\bbetween\s+(?P<from>{num})\s+and\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
             .unwrap(),
             kind: ExpressionKind::TimeRange,
             resolver: |caps, now| {
-                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
-                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
+                if from > 23 || to > 23 { return None; }
+                resolve::resolve_time_range_today(from, to, now)
+            },
+        },
+        // --- Time range: "from 9 to 12 (o'clock)" ---
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\bfrom\s+(?P<from>{num})\s+to\s+(?P<to>{num})\s*(?:o'?clock)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::TimeRange,
+            resolver: |caps, now| {
+                let from = parse_num(caps.name("from")?.as_str())?;
+                let to = parse_num(caps.name("to")?.as_str())?;
                 if from > 23 || to > 23 { return None; }
                 resolve::resolve_time_range_today(from, to, now)
             },
         },
         // --- Next/Last/This Weekday ---
         GrammarRule {
-            pattern: Regex::new(
-                r"(?i)\b(?P<dir>next|last|this)\s+(?P<day>monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
-            )
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<day>{wd})\b"
+            ))
             .unwrap(),
             kind: ExpressionKind::RelativeDay,
             resolver: |caps, now| {
-                let dir_str = caps.name("dir")?.as_str().to_lowercase();
-                let direction = match dir_str.as_str() {
-                    "next" => 1,
-                    "last" => -1,
-                    "this" => 0,
-                    _ => return None,
-                };
+                let direction = weekday_direction(caps.name("dir")?.as_str())?;
                 let weekday = parse_weekday(caps.name("day")?.as_str())?;
                 resolve::resolve_weekday(weekday, direction, now)
             },

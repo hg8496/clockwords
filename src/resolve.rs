@@ -93,27 +93,43 @@ pub fn to_24h(hour: u32, ampm: &str) -> u32 {
     }
 }
 
-/// Resolve a relative weekday to a full-day range.
+/// Compute the day-offset for a weekday relative to `now`.
 ///
-/// `weekday`: 0=Mon, 1=Tue, ..., 6=Sun (or use chrono::Weekday).
+/// `direction`:
+/// - `1`: next week's occurrence
+/// - `-1`: last week's occurrence
+/// - `0`: this week's occurrence (today or future within 6 days)
+fn weekday_offset(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<i64> {
+    use chrono::Datelike;
+    let current_weekday = now.weekday();
+
+    let offset_this =
+        (weekday.number_from_monday() as i64 - current_weekday.number_from_monday() as i64 + 7) % 7;
+
+    match direction {
+        1 => Some(offset_this + 7),
+        -1 => Some(offset_this - 7),
+        0 => Some(offset_this),
+        _ => None,
+    }
+}
+
+/// Resolve a relative weekday to a full-day range (midnight to midnight).
+///
 /// `direction`:
 /// - `1`: "Next Monday" (next week's Monday)
 /// - `-1`: "Last Monday" (last week's Monday)
 /// - `0`: "This Monday" (this coming Monday, or today if it's Monday)
 pub fn resolve_weekday(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<ResolvedTime> {
-    use chrono::Datelike;
-    let current_weekday = now.weekday();
-
-    // "This <Day>": The next occurrence (today or future within 6 days).
-    let offset_this =
-        (weekday.number_from_monday() as i64 - current_weekday.number_from_monday() as i64 + 7) % 7;
-
-    let true_offset = match direction {
-        1 => offset_this + 7,  // Jump to next week
-        -1 => offset_this - 7, // Jump to last week
-        0 => offset_this,      // Stay in this cycle
-        _ => return None,
-    };
-
+    let true_offset = weekday_offset(weekday, direction, now)?;
     resolve_relative_day(true_offset, now)
+}
+
+/// Resolve a relative weekday to midnight of that day (for combining with time specs).
+///
+/// Returns `DateTime<Utc>` at 00:00:00 of the target day, suitable for passing
+/// to [`resolve_time_on_date`] or [`resolve_time_range_on_date`].
+pub fn resolve_weekday_date(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    let true_offset = weekday_offset(weekday, direction, now)?;
+    resolve_day_offset(true_offset, now)
 }

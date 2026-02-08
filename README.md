@@ -6,7 +6,7 @@
 [![Docs.rs](https://docs.rs/clockwords/badge.svg)](https://docs.rs/clockwords)
 [![License](https://img.shields.io/crates/l/clockwords.svg)](LICENSE)
 
-`clockwords` scans free-form text for relative time expressions like *"the last hour"*, *"yesterday at 3pm"*, or *"vor 3 Tagen"* and returns their byte-offset spans together with resolved `DateTime<Utc>` values. It supports **English**, **German**, **French**, and **Spanish** out of the box.
+`clockwords` scans free-form text for relative time expressions like *"last Friday from 9 to eleven"*, *"yesterday at 3pm"*, or *"letzten Freitag von 9 bis 12 Uhr"* and returns their byte-offset spans together with resolved `DateTime<Utc>` values. It supports **English**, **German**, **French**, and **Spanish** out of the box.
 
 Built for **real-time GUI applications** (time-tracking, note-taking, calendars) where the user types naturally and the app highlights detected time references as they appear.
 
@@ -92,6 +92,17 @@ let scanner = scanner_for_languages(&["en", "de"]);
 
 Resolves to a full-day `Range` (midnight to midnight).
 
+### Relative Weekdays
+
+| Language | Examples |
+|----------|----------|
+| English  | `last Friday`, `next Monday`, `this Wednesday` |
+| German   | `letzten Freitag`, `nächsten Montag`, `diesen Mittwoch` |
+| French   | `vendredi dernier`, `lundi prochain`, `ce mercredi` |
+| Spanish  | `el viernes pasado`, `el próximo lunes`, `este miércoles` |
+
+Resolves to a full-day `Range`. French and Spanish support both pre- and post-positive word order (e.g. `lundi prochain` and `prochain lundi`). Spanish also supports `el viernes que viene`.
+
 ### Day Offsets
 
 | Language | Examples |
@@ -118,21 +129,36 @@ Resolves to a `Point` in time.
 
 | Language | Examples |
 |----------|----------|
-| English  | `the last hour`, `last minute`, `between 9 and 12` |
+| English  | `the last hour`, `last minute`, `between 9 and 12`, `from 9 to 12` |
 | German   | `die letzte Stunde`, `von 9 bis 12 Uhr`, `zwischen 9 und 12` |
 | French   | `la dernière heure`, `entre 9 et 12 heures` |
 | Spanish  | `la última hora`, `entre las 9 y las 12` |
 
+English supports both `between X and Y` and `from X to Y` with number words (`from nine to five`).
+
 ### Combined Expressions
 
-Day + time specification or day + time range in a single expression:
+Any day reference (relative day, weekday, or day offset) can be combined with a time specification or time range in a single expression. The entire phrase is detected as one match:
+
+**Relative day + time:**
 
 | Language | Examples |
 |----------|----------|
-| English  | `yesterday at 3pm`, `tomorrow between 9 and 12` |
+| English  | `yesterday at 3pm`, `tomorrow between 9 and 12`, `yesterday from 9 to 11` |
 | German   | `gestern um 15 Uhr`, `gestern von 9 bis 12 Uhr` |
 | French   | `hier à 13h`, `hier entre 9 et 12 heures` |
 | Spanish  | `ayer a las 3`, `ayer entre las 9 y las 12` |
+
+**Weekday + time:**
+
+| Language | Examples |
+|----------|----------|
+| English  | `last Friday at 3pm`, `last Friday from 9 to eleven`, `next Monday between 9 and 12` |
+| German   | `letzten Freitag um 15 Uhr`, `letzten Freitag von 9 bis 12 Uhr`, `diesen Mittwoch zwischen 9 und 11` |
+| French   | `vendredi dernier à 13h`, `vendredi dernier entre 9 et 12 heures`, `ce lundi à 14h` |
+| Spanish  | `el viernes pasado a las 3`, `el pasado viernes entre las 9 y las 12`, `el próximo lunes a las 9` |
+
+Combined expressions resolve to either a `Point` (day + time spec) or a `Range` (day + time range) on the specified day.
 
 ## Architecture
 
@@ -245,7 +271,7 @@ let config = ParserConfig {
    - `parse()` — call `apply_rules()` with your `GrammarRule` list
 3. Add number-word mappings to `src/lang/numbers.rs`
 4. Register the language in `src/lib.rs` → `scanner_for_languages()`
-5. Add tests in `src/lib.rs`
+5. Add tests in `tests/`
 
 Each `GrammarRule` is a compiled regex paired with a resolver closure:
 
@@ -282,10 +308,12 @@ The Aho-Corasick prefilter means that text without any time-related words is rej
 cargo test
 ```
 
-The test suite covers:
+The test suite includes **93 integration tests + 1 doctest** covering:
 - All four languages with various expression types
+- Combined weekday + time expressions across all languages
 - Accent-tolerant variants (with and without diacritics)
 - Embedded expressions in longer sentences
+- `from X to Y` with number words (`nine to five`)
 - Incremental/partial matching
 - Edge cases (empty input, no false positives)
 - Cross-language default scanner

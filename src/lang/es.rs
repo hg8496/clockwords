@@ -110,10 +110,103 @@ impl Spanish {
     }
 }
 
+/// Shared weekday pattern (accent-tolerant)
+const WEEKDAY_PAT: &str = r"lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo";
+
+fn es_weekday_direction(s: &str) -> Option<i64> {
+    let lower = s.to_lowercase();
+    match lower.as_str() {
+        "próximo" | "proximo" => Some(1),
+        "pasado" => Some(-1),
+        "este" => Some(0),
+        _ if lower.contains("viene") => Some(1),
+        _ => None,
+    }
+}
+
 fn build_rules() -> Vec<GrammarRule> {
     let num = NUM_WORD_PATTERN;
+    let wd = WEEKDAY_PAT;
 
     vec![
+        // ============================================================
+        //  Combined: Weekday (pre-positive) + "a las X"
+        //  "el próximo lunes a las 3"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:el\s+)?(?P<dir>pr[oó]ximo|pasado|este)\s+(?P<wd>{wd})\s+a\s+las\s+(?P<hour>\d{{1,2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = es_weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+                if hour > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_on_date(date, hour, 0)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (pre-positive) + "entre las X y las Y"
+        //  "el pasado viernes entre las 9 y las 12"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:el\s+)?(?P<dir>pr[oó]ximo|pasado|este)\s+(?P<wd>{wd})\s+entre\s+las\s+(?P<from>\d{{1,2}})\s+y\s+las\s+(?P<to>\d{{1,2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = es_weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
+                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "a las X"
+        //  "el viernes pasado a las 3"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:el\s+)?(?P<wd>{wd})\s+(?P<dir>pr[oó]ximo|pasado|que\s+viene)\s+a\s+las\s+(?P<hour>\d{{1,2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = es_weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+                if hour > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_on_date(date, hour, 0)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "entre las X y las Y"
+        //  "el viernes pasado entre las 9 y las 12"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:el\s+)?(?P<wd>{wd})\s+(?P<dir>pr[oó]ximo|pasado|que\s+viene)\s+entre\s+las\s+(?P<from>\d{{1,2}})\s+y\s+las\s+(?P<to>\d{{1,2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = es_weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
+                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
         // --- Combined: "ayer a las 3" ---
         GrammarRule {
             pattern: Regex::new(

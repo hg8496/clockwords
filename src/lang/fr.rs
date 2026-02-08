@@ -105,10 +105,96 @@ impl French {
     }
 }
 
+/// Shared weekday pattern
+const WEEKDAY_PAT: &str = r"lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche";
+
 fn build_rules() -> Vec<GrammarRule> {
     let num = NUM_WORD_PATTERN;
+    let wd = WEEKDAY_PAT;
 
     vec![
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "à Xh"
+        //  "vendredi dernier à 13h"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:le\s+)?(?P<day>{wd})\s+(?P<dir>prochain|dernier)\s+[àa]\s+(?P<hour>\d{{1,2}})\s*h\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = match caps.name("dir")?.as_str().to_lowercase().as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+                if hour > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_on_date(date, hour, 0)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "entre X et Y heures"
+        //  "vendredi dernier entre 9 et 12 heures"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:le\s+)?(?P<day>{wd})\s+(?P<dir>prochain|dernier)\s+entre\s+(?P<from>\d{{1,2}})\s+et\s+(?P<to>\d{{1,2}})\s*(?:heures?)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let direction = match caps.name("dir")?.as_str().to_lowercase().as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
+                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, direction, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
+        // ============================================================
+        //  Combined: "ce lundi à 13h"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\bce\s+(?P<day>{wd})\s+[àa]\s+(?P<hour>\d{{1,2}})\s*h\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+                if hour > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, 0, now)?;
+                resolve::resolve_time_on_date(date, hour, 0)
+            },
+        },
+        // ============================================================
+        //  Combined: "ce lundi entre 9 et 12 heures"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\bce\s+(?P<day>{wd})\s+entre\s+(?P<from>\d{{1,2}})\s+et\s+(?P<to>\d{{1,2}})\s*(?:heures?)?\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now| {
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
+                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                if from > 23 || to > 23 { return None; }
+                let date = resolve::resolve_weekday_date(weekday, 0, now)?;
+                resolve::resolve_time_range_on_date(date, from, to)
+            },
+        },
         // --- Combined: "hier à 13h" ---
         GrammarRule {
             pattern: Regex::new(

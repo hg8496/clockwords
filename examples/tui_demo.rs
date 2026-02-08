@@ -78,7 +78,7 @@ fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner) {
     // Input widget
     let input_paragraph = Paragraph::new(input)
         .style(Style::default().fg(Color::Yellow))
-        .block(Block::default().borders(Borders::ALL).title("Input (Type a time expression like 'tomorrow at noon', 'in 3 days')"));
+        .block(Block::default().borders(Borders::ALL).title("Input (Type a time expression like 'tomorrow', 'in 3 days')"));
     f.render_widget(input_paragraph, chunks[0]);
 
     // Scan the input
