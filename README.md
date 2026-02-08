@@ -2,6 +2,7 @@
 
 **Find and resolve natural-language time expressions in text.**
 
+[![CI](https://github.com/hg8496/clockwords/actions/workflows/ci.yml/badge.svg)](https://github.com/hg8496/clockwords/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/clockwords.svg)](https://crates.io/crates/clockwords)
 [![Docs.rs](https://docs.rs/clockwords/badge.svg)](https://docs.rs/clockwords)
 [![License](https://img.shields.io/crates/l/clockwords.svg)](LICENSE)
