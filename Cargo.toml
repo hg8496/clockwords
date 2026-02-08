@@ -5,7 +5,7 @@ license = "Apache-2.0"
 repository = "https://github.com/hg8496/clockwords"
 keywords = ["time", "nlp", "parser", "chrono", "multilingual"]
 categories = ["text-processing", "date-and-time", "internationalization"]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]

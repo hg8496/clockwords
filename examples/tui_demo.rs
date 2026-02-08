@@ -146,10 +146,7 @@ fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner, tz: Tz) {
                 ResolvedTime::Range { start, end } => {
                     let local_start = start.with_timezone(&tz);
                     let local_end = end.with_timezone(&tz);
-                    format!(
-                        "{} — {}",
-                        local_start, local_end
-                    )
+                    format!("{} — {}", local_start, local_end)
                 }
             };
             result_lines.push(Line::from(vec![

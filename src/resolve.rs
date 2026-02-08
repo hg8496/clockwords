@@ -10,7 +10,12 @@ pub fn resolve_day_offset(days: i64, now: DateTime<Utc>, tz: Tz) -> Option<DateT
     let target = now.checked_add_signed(Duration::days(days))?;
     let local_date = target.with_timezone(&tz).date_naive();
     let midnight_local = local_date.and_hms_opt(0, 0, 0)?;
-    Some(midnight_local.and_local_timezone(tz).earliest()?.with_timezone(&Utc))
+    Some(
+        midnight_local
+            .and_local_timezone(tz)
+            .earliest()?
+            .with_timezone(&Utc),
+    )
 }
 
 /// Resolve a relative day keyword to a full-day range (midnight to midnight in the user's timezone).
@@ -34,7 +39,10 @@ pub fn resolve_time_on_date(
 ) -> Option<ResolvedTime> {
     let local_date = date.with_timezone(&tz).date_naive();
     let local_time = local_date.and_hms_opt(hour, minute, 0)?;
-    let utc = local_time.and_local_timezone(tz).earliest()?.with_timezone(&Utc);
+    let utc = local_time
+        .and_local_timezone(tz)
+        .earliest()?
+        .with_timezone(&Utc);
     Some(ResolvedTime::Point(utc))
 }
 
@@ -133,8 +141,7 @@ fn weekday_offset(
     let current_weekday = local_now.weekday();
 
     let offset_this =
-        (weekday.number_from_monday() as i64 - current_weekday.number_from_monday() as i64 + 7)
-            % 7;
+        (weekday.number_from_monday() as i64 - current_weekday.number_from_monday() as i64 + 7) % 7;
 
     match direction {
         1 => Some(offset_this + 7),

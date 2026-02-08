@@ -13,7 +13,8 @@ use regex::Regex;
 pub struct GrammarRule {
     pub pattern: Regex,
     pub kind: ExpressionKind,
-    pub resolver: fn(captures: &regex::Captures, now: DateTime<Utc>, tz: Tz) -> Option<ResolvedTime>,
+    pub resolver:
+        fn(captures: &regex::Captures, now: DateTime<Utc>, tz: Tz) -> Option<ResolvedTime>,
 }
 
 /// Trait that each language must implement.
@@ -31,7 +32,12 @@ pub trait LanguageParser: Send + Sync {
 }
 
 /// Shared helper: run all grammar rules against text and collect matches.
-pub fn apply_rules(rules: &[GrammarRule], text: &str, now: DateTime<Utc>, tz: Tz) -> Vec<TimeMatch> {
+pub fn apply_rules(
+    rules: &[GrammarRule],
+    text: &str,
+    now: DateTime<Utc>,
+    tz: Tz,
+) -> Vec<TimeMatch> {
     use crate::types::{MatchConfidence, Span};
 
     let mut matches = Vec::new();
