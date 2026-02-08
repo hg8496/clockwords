@@ -3,6 +3,7 @@ pub mod resolve;
 pub mod scanner;
 pub mod types;
 
+pub use chrono_tz::Tz;
 pub use scanner::TimeExpressionScanner;
 pub use types::*;
 

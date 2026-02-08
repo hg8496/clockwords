@@ -10,9 +10,12 @@ edition = "2024"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
 regex = "1"
 aho-corasick = "1"
 
 [dev-dependencies]
+chrono-tz = "0.10"
 crossterm = "0.29.0"
+iana-time-zone = "0.1"
 ratatui = "0.30.0"

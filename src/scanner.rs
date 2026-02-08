@@ -1,5 +1,6 @@
 use aho_corasick::AhoCorasick;
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 
 use crate::lang::LanguageParser;
 use crate::types::*;
@@ -43,8 +44,18 @@ impl TimeExpressionScanner {
     }
 
     /// Scan the input text and return all time expression matches.
+    ///
+    /// Uses the timezone configured in [`ParserConfig::timezone`] (defaults to UTC).
     /// Call this on every keystroke with the current buffer contents.
     pub fn scan(&self, text: &str, now: DateTime<Utc>) -> Vec<TimeMatch> {
+        self.scan_with_tz(text, now, self.config.timezone)
+    }
+
+    /// Scan the input text using an explicit timezone override.
+    ///
+    /// Times entered by the user are interpreted in the given timezone.
+    /// The resolved output remains in UTC.
+    pub fn scan_with_tz(&self, text: &str, now: DateTime<Utc>, tz: Tz) -> Vec<TimeMatch> {
         let has_keywords = self.keyword_filter.find(text).is_some();
         let has_prefixes = self.config.report_partial && self.prefix_filter.find(text).is_some();
 
@@ -56,7 +67,7 @@ impl TimeExpressionScanner {
 
         if has_keywords {
             for lang in &self.languages {
-                matches.extend(lang.parse(text, now));
+                matches.extend(lang.parse(text, now, tz));
             }
         }
 

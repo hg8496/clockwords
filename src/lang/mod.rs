@@ -6,13 +6,14 @@ pub mod numbers;
 
 use crate::types::{ExpressionKind, ResolvedTime, TimeMatch};
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 use regex::Regex;
 
 /// A grammar rule: compiled regex + metadata + resolver function.
 pub struct GrammarRule {
     pub pattern: Regex,
     pub kind: ExpressionKind,
-    pub resolver: fn(captures: &regex::Captures, now: DateTime<Utc>) -> Option<ResolvedTime>,
+    pub resolver: fn(captures: &regex::Captures, now: DateTime<Utc>, tz: Tz) -> Option<ResolvedTime>,
 }
 
 /// Trait that each language must implement.
@@ -26,11 +27,11 @@ pub trait LanguageParser: Send + Sync {
     fn keyword_prefixes(&self) -> &[&str];
 
     /// Parse all time expressions from the text.
-    fn parse(&self, text: &str, now: DateTime<Utc>) -> Vec<TimeMatch>;
+    fn parse(&self, text: &str, now: DateTime<Utc>, tz: Tz) -> Vec<TimeMatch>;
 }
 
 /// Shared helper: run all grammar rules against text and collect matches.
-pub fn apply_rules(rules: &[GrammarRule], text: &str, now: DateTime<Utc>) -> Vec<TimeMatch> {
+pub fn apply_rules(rules: &[GrammarRule], text: &str, now: DateTime<Utc>, tz: Tz) -> Vec<TimeMatch> {
     use crate::types::{MatchConfidence, Span};
 
     let mut matches = Vec::new();
@@ -49,7 +50,7 @@ pub fn apply_rules(rules: &[GrammarRule], text: &str, now: DateTime<Utc>) -> Vec
                 continue;
             }
 
-            if let Some(resolved) = (rule.resolver)(&caps, now) {
+            if let Some(resolved) = (rule.resolver)(&caps, now, tz) {
                 // Remove any shorter matches that this one covers
                 let new_range = range.clone();
                 matches.retain(|tm: &TimeMatch| {

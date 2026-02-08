@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 use std::ops::Range;
 
 /// A byte-offset span identifying a substring within the input text.
@@ -175,7 +176,7 @@ pub enum ExpressionKind {
 }
 
 /// Configuration for the [`TimeExpressionScanner`](crate::scanner::TimeExpressionScanner).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ParserConfig {
     /// Whether to report partial (prefix) matches while the user is typing.
     ///
@@ -189,6 +190,13 @@ pub struct ParserConfig {
     /// Excess matches are dropped after deduplication and sorting.
     /// Defaults to `10`.
     pub max_matches: usize,
+
+    /// The timezone used to interpret user input.
+    ///
+    /// Times entered by the user (e.g., `"at 3pm"`, `"today"`) are
+    /// interpreted in this timezone. The resolved output remains in UTC.
+    /// Defaults to `Tz::UTC`.
+    pub timezone: Tz,
 }
 
 impl Default for ParserConfig {
@@ -196,6 +204,7 @@ impl Default for ParserConfig {
         Self {
             report_partial: true,
             max_matches: 10,
+            timezone: Tz::UTC,
         }
     }
 }

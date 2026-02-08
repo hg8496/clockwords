@@ -9,11 +9,12 @@
 
 `clockwords` scans free-form text for relative time expressions like *"last Friday from 9 to eleven"*, *"yesterday at 3pm"*, or *"letzten Freitag von 9 bis 12 Uhr"* and returns their byte-offset spans together with resolved `DateTime<Utc>` values. It supports **English**, **German**, **French**, and **Spanish** out of the box.
 
-Built for **real-time GUI applications** (time-tracking, note-taking, calendars) where the user types naturally and the app highlights detected time references as they appear.
+Built for **real-time GUI applications** (time-tracking, note-taking, calendars) where the user types naturally and the app highlights detected time references as they appear. Timezone-aware — times the user enters are interpreted in their local timezone (configurable, defaults to UTC).
 
 ## Features
 
 - **Four languages**: English, German, French, Spanish
+- **Timezone-aware**: User input is interpreted in a configurable timezone (defaults to UTC for backward compatibility)
 - **Byte-offset spans**: Directly usable for text highlighting in any GUI framework
 - **Resolved times**: Every match resolves to a concrete `DateTime<Utc>` point or range
 - **Incremental typing support**: Detects partial matches (e.g. `"yester"` while the user is still typing `"yesterday"`)
@@ -80,6 +81,33 @@ use clockwords::scanner_for_languages;
 let scanner = scanner_for_languages(&["en", "de"]);
 ```
 
+### Timezone Support
+
+By default, all times are interpreted in UTC. To interpret user input in a specific timezone, configure `ParserConfig::timezone` or use `scan_with_tz()`:
+
+```rust
+use clockwords::{ParserConfig, TimeExpressionScanner, Tz, default_scanner};
+use chrono::Utc;
+
+// Option 1: Set timezone in config
+let config = ParserConfig {
+    timezone: Tz::Europe__Berlin,
+    ..Default::default()
+};
+// Pass config when constructing the scanner (e.g. via TimeExpressionScanner::new)
+
+// Option 2: Override per scan call
+let scanner = default_scanner();
+let matches = scanner.scan_with_tz("yesterday at 3pm", Utc::now(), Tz::Europe__Berlin);
+// "3pm" is interpreted as 15:00 Berlin time → resolves to 14:00 UTC (in winter)
+```
+
+When a timezone is set, all day boundaries (midnight), time-of-day values, and weekday calculations use the user's local timezone. The resolved output always remains in UTC. For example, with `Europe/Berlin` (CET, UTC+1 in winter):
+
+- `"today"` at 23:30 UTC (= 00:30 CET next day) → the range covers the *next* calendar day in Berlin
+- `"at 3pm"` → resolves to 14:00 UTC (not 15:00 UTC)
+- `"the last hour"` → unchanged (duration-based, timezone-independent)
+
 ## Supported Expressions
 
 ### Relative Days
@@ -91,7 +119,7 @@ let scanner = scanner_for_languages(&["en", "de"]);
 | French   | `aujourd'hui`, `demain`, `hier` |
 | Spanish  | `hoy`, `mañana`, `ayer` |
 
-Resolves to a full-day `Range` (midnight to midnight).
+Resolves to a full-day `Range` (midnight to midnight in the configured timezone).
 
 ### Relative Weekdays
 
@@ -102,7 +130,7 @@ Resolves to a full-day `Range` (midnight to midnight).
 | French   | `vendredi dernier`, `lundi prochain`, `ce mercredi` |
 | Spanish  | `el viernes pasado`, `el próximo lunes`, `este miércoles` |
 
-Resolves to a full-day `Range`. French and Spanish support both pre- and post-positive word order (e.g. `lundi prochain` and `prochain lundi`). Spanish also supports `el viernes que viene`.
+Resolves to a full-day `Range` (midnight to midnight in the configured timezone). French and Spanish support both pre- and post-positive word order (e.g. `lundi prochain` and `prochain lundi`). Spanish also supports `el viernes que viene`.
 
 ### Day Offsets
 
@@ -209,7 +237,8 @@ Rather than maintaining an incremental parser state machine, `clockwords` re-sca
 | `ResolvedTime` | `Point(DateTime<Utc>)` or `Range { start, end }` |
 | `MatchConfidence` | `Partial` (user still typing) or `Complete` |
 | `ExpressionKind` | `RelativeDay`, `RelativeDayOffset`, `TimeSpecification`, `TimeRange`, `Combined` |
-| `ParserConfig` | Settings: `report_partial` (default `true`), `max_matches` (default `10`) |
+| `ParserConfig` | Settings: `report_partial` (default `true`), `max_matches` (default `10`), `timezone` (default `Tz::UTC`) |
+| `Tz` | Re-exported from `chrono-tz` — IANA timezone (e.g. `Tz::Europe__Berlin`, `Tz::US__Eastern`) |
 
 ## GUI Integration
 
@@ -280,14 +309,14 @@ Each `GrammarRule` is a compiled regex paired with a resolver closure:
 GrammarRule {
     pattern: Regex::new(r"(?i)\b(?P<day>oggi|domani|ieri)\b").unwrap(),
     kind: ExpressionKind::RelativeDay,
-    resolver: |caps, now| {
+    resolver: |caps, now, tz| {
         let offset = match caps.name("day")?.as_str().to_lowercase().as_str() {
             "oggi" => 0,
             "domani" => 1,
             "ieri" => -1,
             _ => return None,
         };
-        resolve::resolve_relative_day(offset, now)
+        resolve::resolve_relative_day(offset, now, tz)
     },
 }
 ```
@@ -309,9 +338,11 @@ The Aho-Corasick prefilter means that text without any time-related words is rej
 cargo test
 ```
 
-The test suite includes **93 integration tests + 1 doctest** covering:
+The test suite includes **106 integration tests + 1 doctest** covering:
 - All four languages with various expression types
 - Combined weekday + time expressions across all languages
+- Timezone-aware resolution (Europe/Berlin, US/Eastern, UTC)
+- Cross-midnight timezone boundary handling
 - Accent-tolerant variants (with and without diacritics)
 - Embedded expressions in longer sentences
 - `from X to Y` with number words (`nine to five`)
@@ -334,6 +365,7 @@ Type time expressions and watch them get parsed in real time. Press **ESC** to q
 | Crate | Purpose |
 |-------|---------|
 | [`chrono`](https://crates.io/crates/chrono) | Date/time types and arithmetic |
+| [`chrono-tz`](https://crates.io/crates/chrono-tz) | IANA timezone database for timezone-aware resolution |
 | [`regex`](https://crates.io/crates/regex) | Per-language grammar patterns |
 | [`aho-corasick`](https://crates.io/crates/aho-corasick) | Fast multi-keyword prefilter |
 

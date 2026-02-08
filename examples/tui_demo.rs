@@ -1,4 +1,7 @@
-use clockwords::{ResolvedTime, TimeExpressionScanner, default_scanner};
+use clockwords::{
+    ParserConfig, ResolvedTime, TimeExpressionScanner, Tz,
+    lang::{self, LanguageParser},
+};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute,
@@ -13,6 +16,15 @@ use ratatui::{
 };
 use std::io::{self, Stdout};
 use std::time::Duration;
+
+/// Detect the system's IANA timezone and parse it into a `chrono_tz::Tz`.
+/// Falls back to UTC if detection or parsing fails.
+fn detect_local_timezone() -> Tz {
+    iana_time_zone::get_timezone()
+        .ok()
+        .and_then(|name| name.parse::<Tz>().ok())
+        .unwrap_or(Tz::UTC)
+}
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
@@ -37,14 +49,25 @@ fn main() -> io::Result<()> {
 
 fn run_app(terminal: &mut Terminal<ratatui::backend::CrosstermBackend<Stdout>>) -> io::Result<()> {
     let mut input = String::new();
-    // Default scanner with EN, DE, FR, ES support
-    let scanner = default_scanner();
-    // Use a fixed "now" or current time?
-    // For a demo, real-time "now" makes sense so "in 5 minutes" updates.
-    // However, for stability during typing, maybe we just grab 'now' once per frame.
+
+    // Detect the local timezone for timezone-aware parsing
+    let local_tz = detect_local_timezone();
+
+    // Build scanner with local timezone
+    let languages: Vec<Box<dyn LanguageParser>> = vec![
+        Box::new(lang::en::English::new()),
+        Box::new(lang::de::German::new()),
+        Box::new(lang::fr::French::new()),
+        Box::new(lang::es::Spanish::new()),
+    ];
+    let config = ParserConfig {
+        timezone: local_tz,
+        ..Default::default()
+    };
+    let scanner = TimeExpressionScanner::new(languages, config);
 
     loop {
-        terminal.draw(|f| ui(f, &input, &scanner))?;
+        terminal.draw(|f| ui(f, &input, &scanner, local_tz))?;
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
@@ -65,7 +88,7 @@ fn run_app(terminal: &mut Terminal<ratatui::backend::CrosstermBackend<Stdout>>) 
     }
 }
 
-fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner) {
+fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner, tz: Tz) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -76,13 +99,13 @@ fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner) {
         .split(f.area());
 
     // Input widget
+    let title = format!(
+        "Input — timezone: {} (Type a time expression like 'tomorrow', 'in 3 days')",
+        tz
+    );
     let input_paragraph = Paragraph::new(input)
         .style(Style::default().fg(Color::Yellow))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Input (Type a time expression like 'tomorrow', 'in 3 days')"),
-        );
+        .block(Block::default().borders(Borders::ALL).title(title));
     f.render_widget(input_paragraph, chunks[0]);
 
     // Scan the input
@@ -116,8 +139,18 @@ fn ui(f: &mut Frame, input: &str, scanner: &TimeExpressionScanner) {
             ]));
 
             let resolved_str = match m.resolved {
-                ResolvedTime::Point(dt) => format!("Point({})", dt),
-                ResolvedTime::Range { start, end } => format!("Range({} - {})", start, end),
+                ResolvedTime::Point(dt) => {
+                    let local = dt.with_timezone(&tz);
+                    format!("{}", local)
+                }
+                ResolvedTime::Range { start, end } => {
+                    let local_start = start.with_timezone(&tz);
+                    let local_end = end.with_timezone(&tz);
+                    format!(
+                        "{} — {}",
+                        local_start, local_end
+                    )
+                }
             };
             result_lines.push(Line::from(vec![
                 Span::raw("  Resolved: "),
