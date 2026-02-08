@@ -7,7 +7,7 @@ use std::ops::Range;
 /// You can use [`Span::as_range`] to slice the original input:
 ///
 /// ```
-/// # use relative_human_parser::Span;
+/// # use clockwords::Span;
 /// let text = "The last hour I coded";
 /// let span = Span::new(0, 13);
 /// assert_eq!(&text[span.as_range()], "The last hour");

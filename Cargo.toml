@@ -1,5 +1,10 @@
 [package]
-name = "relative-human-parser"
+name = "clockwords"
+description = "Find and resolve natural-language time expressions across multiple languages"
+license = "Apache-2.0"
+repository = "https://github.com/hg8496/clockwords"
+keywords = ["time", "nlp", "parser", "chrono", "multilingual"]
+categories = ["text-processing", "date-and-time", "internationalization"]
 version = "0.1.0"
 edition = "2024"
 
@@ -7,3 +12,7 @@ edition = "2024"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 regex = "1"
 aho-corasick = "1"
+
+[dev-dependencies]
+crossterm = "0.29.0"
+ratatui = "0.30.0"
