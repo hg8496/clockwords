@@ -1,5 +1,5 @@
-use clockwords::{scanner_for_languages, ExpressionKind, ResolvedTime, MatchConfidence, Span};
 use chrono::TimeZone;
+use clockwords::{ExpressionKind, MatchConfidence, ResolvedTime, Span, scanner_for_languages};
 
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc.with_ymd_and_hms(2026, 2, 7, 14, 30, 0).unwrap()
@@ -177,7 +177,11 @@ fn en_embedded_in_sentence() {
     let m = s.scan(text, now());
     assert_eq!(m.len(), 1);
     assert_eq!(m[0].kind, ExpressionKind::TimeRange);
-    assert!(m[0].span.end <= 14, "span end should be at most 14, got {}", m[0].span.end);
+    assert!(
+        m[0].span.end <= 14,
+        "span end should be at most 14, got {}",
+        m[0].span.end
+    );
 }
 
 #[test]

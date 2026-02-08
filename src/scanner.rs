@@ -65,7 +65,9 @@ impl TimeExpressionScanner {
         }
 
         matches.sort_by(|a, b| {
-            a.span.start.cmp(&b.span.start)
+            a.span
+                .start
+                .cmp(&b.span.start)
                 .then(b.confidence.cmp(&a.confidence))
                 .then(b.span.len().cmp(&a.span.len()))
         });
@@ -73,12 +75,7 @@ impl TimeExpressionScanner {
         self.deduplicate(matches)
     }
 
-    fn find_partial_matches(
-        &self,
-        text: &str,
-        _now: DateTime<Utc>,
-        matches: &mut Vec<TimeMatch>,
-    ) {
+    fn find_partial_matches(&self, text: &str, _now: DateTime<Utc>, matches: &mut Vec<TimeMatch>) {
         // Only check if the text ends with a prefix of a time keyword.
         // This detects the user currently typing a time expression.
         for lang in &self.languages {

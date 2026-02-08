@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 
 use crate::lang::numbers::parse_number_de;
-use crate::lang::{apply_rules, GrammarRule, LanguageParser};
+use crate::lang::{GrammarRule, LanguageParser, apply_rules};
 use crate::resolve;
 use crate::types::*;
 
@@ -41,21 +41,56 @@ const KEYWORDS: &[&str] = &[
 ];
 
 const PREFIXES: &[&str] = &[
-    "heu", "heut",
-    "mor", "morg", "morge",
-    "ges", "gest", "geste", "gester",
-    "zwi", "zwis", "zwisc", "zwisch", "zwische", "zwischen",
-    "mon", "mont", "monta",
-    "die", "dien", "diens", "dienst", "diensta",
-    "mit", "mitt", "mittw", "mittwo", "mittwoc",
-    "don", "donn", "donne", "donner", "donners", "donnerst", "donnersta",
-    "fre", "frei", "freit", "freita",
-    "sam", "sams", "samst", "samsta",
-    "son", "sonn", "sonnt", "sonnta",
+    "heu",
+    "heut",
+    "mor",
+    "morg",
+    "morge",
+    "ges",
+    "gest",
+    "geste",
+    "gester",
+    "zwi",
+    "zwis",
+    "zwisc",
+    "zwisch",
+    "zwische",
+    "zwischen",
+    "mon",
+    "mont",
+    "monta",
+    "die",
+    "dien",
+    "diens",
+    "dienst",
+    "diensta",
+    "mit",
+    "mitt",
+    "mittw",
+    "mittwo",
+    "mittwoc",
+    "don",
+    "donn",
+    "donne",
+    "donner",
+    "donners",
+    "donnerst",
+    "donnersta",
+    "fre",
+    "frei",
+    "freit",
+    "freita",
+    "sam",
+    "sams",
+    "samst",
+    "samsta",
+    "son",
+    "sonn",
+    "sonnt",
+    "sonnta",
 ];
 
-const NUM_WORD_PATTERN: &str =
-    r"(?:\d+|ein|eins|eine|einem|einen|zwei|drei|vier|f[uü]n[f]?|sechs|sieben|acht|neun|zehn|elf|zw[oö]lf)";
+const NUM_WORD_PATTERN: &str = r"(?:\d+|ein|eins|eine|einem|einen|zwei|drei|vier|f[uü]n[f]?|sechs|sieben|acht|neun|zehn|elf|zw[oö]lf)";
 
 fn day_keyword_offset(s: &str) -> Option<i64> {
     match s.to_lowercase().as_str() {

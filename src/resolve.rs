@@ -23,11 +23,7 @@ pub fn resolve_relative_day(offset: i64, now: DateTime<Utc>) -> Option<ResolvedT
 /// Set time-of-day on a given date, returning a point.
 ///
 /// Returns `None` if `hour` >= 24 or `minute` >= 60.
-pub fn resolve_time_on_date(
-    date: DateTime<Utc>,
-    hour: u32,
-    minute: u32,
-) -> Option<ResolvedTime> {
+pub fn resolve_time_on_date(date: DateTime<Utc>, hour: u32, minute: u32) -> Option<ResolvedTime> {
     let point = date.date_naive().and_hms_opt(hour, minute, 0)?.and_utc();
     Some(ResolvedTime::Point(point))
 }
@@ -120,7 +116,11 @@ fn weekday_offset(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) 
 /// - `1`: "Next Monday" (next week's Monday)
 /// - `-1`: "Last Monday" (last week's Monday)
 /// - `0`: "This Monday" (this coming Monday, or today if it's Monday)
-pub fn resolve_weekday(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<ResolvedTime> {
+pub fn resolve_weekday(
+    weekday: chrono::Weekday,
+    direction: i64,
+    now: DateTime<Utc>,
+) -> Option<ResolvedTime> {
     let true_offset = weekday_offset(weekday, direction, now)?;
     resolve_relative_day(true_offset, now)
 }
@@ -129,7 +129,11 @@ pub fn resolve_weekday(weekday: chrono::Weekday, direction: i64, now: DateTime<U
 ///
 /// Returns `DateTime<Utc>` at 00:00:00 of the target day, suitable for passing
 /// to [`resolve_time_on_date`] or [`resolve_time_range_on_date`].
-pub fn resolve_weekday_date(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+pub fn resolve_weekday_date(
+    weekday: chrono::Weekday,
+    direction: i64,
+    now: DateTime<Utc>,
+) -> Option<DateTime<Utc>> {
     let true_offset = weekday_offset(weekday, direction, now)?;
     resolve_day_offset(true_offset, now)
 }

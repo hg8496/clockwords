@@ -1,5 +1,5 @@
-use clockwords::{scanner_for_languages, ExpressionKind, ResolvedTime};
 use chrono::{TimeZone, Utc};
+use clockwords::{ExpressionKind, ResolvedTime, scanner_for_languages};
 
 /// Sunday Feb 8, 2026 12:00:00 UTC — same reference as next_friday tests.
 fn now() -> chrono::DateTime<Utc> {

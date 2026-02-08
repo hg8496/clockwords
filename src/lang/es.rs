@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 
 use crate::lang::numbers::parse_number_es;
-use crate::lang::{apply_rules, GrammarRule, LanguageParser};
+use crate::lang::{GrammarRule, LanguageParser, apply_rules};
 use crate::resolve;
 use crate::types::*;
 
@@ -42,26 +42,14 @@ const KEYWORDS: &[&str] = &[
 ];
 
 const PREFIXES: &[&str] = &[
-    "hoy",
-    "man", "mana", "mañan",
-    "aye",
-    "ent", "entr",
-    "hac",
-    "últ", "ulti", "ultim",
-    "pró", "pro", "prox", "próx", "próxi", "proxi",
-    "pas", "pasa", "pasad",
-    "est", "este",
-    "lun", "lune",
-    "mar", "mart", "marte",
-    "mié", "mie", "mier", "miérc", "mierc",
-    "jue", "juev", "jueve",
-    "vie", "vier", "viern", "vierne",
-    "sáb", "sab", "sába", "saba", "sábad", "sabad",
-    "dom", "domi", "domin", "doming",
+    "hoy", "man", "mana", "mañan", "aye", "ent", "entr", "hac", "últ", "ulti", "ultim", "pró",
+    "pro", "prox", "próx", "próxi", "proxi", "pas", "pasa", "pasad", "est", "este", "lun", "lune",
+    "mar", "mart", "marte", "mié", "mie", "mier", "miérc", "mierc", "jue", "juev", "jueve", "vie",
+    "vier", "viern", "vierne", "sáb", "sab", "sába", "saba", "sábad", "sabad", "dom", "domi",
+    "domin", "doming",
 ];
 
-const NUM_WORD_PATTERN: &str =
-    r"(?:\d+|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta)";
+const NUM_WORD_PATTERN: &str = r"(?:\d+|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta)";
 
 fn day_keyword_offset(s: &str) -> Option<i64> {
     let lower = s.to_lowercase();
@@ -338,8 +326,8 @@ fn build_rules() -> Vec<GrammarRule> {
             resolver: |caps, now| {
                 let dir_str = caps.name("dir")?.as_str().to_lowercase();
                 let direction = if dir_str.contains("pasado") {
-                     -1 
-                } else { 
+                     -1
+                } else {
                      1 // "próximo" or "que viene"
                 };
                 let weekday = parse_weekday(caps.name("day")?.as_str())?;

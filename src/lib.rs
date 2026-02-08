@@ -32,4 +32,3 @@ pub fn scanner_for_languages(lang_ids: &[&str]) -> TimeExpressionScanner {
 }
 
 // Tests have been moved to the `tests/` directory.
-

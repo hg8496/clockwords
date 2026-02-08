@@ -1,5 +1,5 @@
-use clockwords::{scanner_for_languages, ExpressionKind, ResolvedTime};
 use chrono::TimeZone;
+use clockwords::{ExpressionKind, ResolvedTime, scanner_for_languages};
 
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc.with_ymd_and_hms(2026, 2, 7, 14, 30, 0).unwrap()
@@ -80,8 +80,10 @@ fn fr_a_13h_ascii_in_context() {
     // Should find both "hier" (RelativeDay) and the combined "hier a 13h" (Combined)
     assert!(!m.is_empty());
     // At minimum, the combined match should be present
-    assert!(m.iter().any(|tm| tm.kind == ExpressionKind::Combined
-        || tm.kind == ExpressionKind::TimeSpecification));
+    assert!(
+        m.iter().any(|tm| tm.kind == ExpressionKind::Combined
+            || tm.kind == ExpressionKind::TimeSpecification)
+    );
 }
 
 #[test]

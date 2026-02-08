@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 
 use crate::lang::numbers::parse_number_fr;
-use crate::lang::{apply_rules, GrammarRule, LanguageParser};
+use crate::lang::{GrammarRule, LanguageParser, apply_rules};
 use crate::resolve;
 use crate::types::*;
 
@@ -37,23 +37,13 @@ const KEYWORDS: &[&str] = &[
 ];
 
 const PREFIXES: &[&str] = &[
-    "auj", "aujo", "aujou", "aujour", "aujourd",
-    "dem", "dema", "demai",
-    "hie",
-    "ent", "entr",
-    "der", "dern", "derni",
-    "pro", "proc", "proch", "procha", "prochai",
-    "lun", "lund",
-    "mar", "mard",
-    "mer", "merc", "mercr", "mercre", "mercred",
-    "jeu", "jeud",
-    "ven", "vend", "vendr", "vendre", "vendred",
-    "sam", "same", "samed",
-    "dim", "dima", "diman", "dimanc", "dimanch",
+    "auj", "aujo", "aujou", "aujour", "aujourd", "dem", "dema", "demai", "hie", "ent", "entr",
+    "der", "dern", "derni", "pro", "proc", "proch", "procha", "prochai", "lun", "lund", "mar",
+    "mard", "mer", "merc", "mercr", "mercre", "mercred", "jeu", "jeud", "ven", "vend", "vendr",
+    "vendre", "vendred", "sam", "same", "samed", "dim", "dima", "diman", "dimanc", "dimanch",
 ];
 
-const NUM_WORD_PATTERN: &str =
-    r"(?:\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente)";
+const NUM_WORD_PATTERN: &str = r"(?:\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente)";
 
 fn day_keyword_offset(s: &str) -> Option<i64> {
     let lower = s.to_lowercase();

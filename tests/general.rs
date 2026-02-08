@@ -1,5 +1,5 @@
-use clockwords::{default_scanner, scanner_for_languages, MatchConfidence};
 use chrono::TimeZone;
+use clockwords::{MatchConfidence, default_scanner, scanner_for_languages};
 
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc.with_ymd_and_hms(2026, 2, 7, 14, 30, 0).unwrap()

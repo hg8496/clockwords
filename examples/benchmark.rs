@@ -1,5 +1,5 @@
-use clockwords::default_scanner;
 use chrono::Utc;
+use clockwords::default_scanner;
 use std::time::Instant;
 
 fn main() {
@@ -25,7 +25,10 @@ fn main() {
         ),
     ];
 
-    println!("{:<35} | {:<15} | {:<15}", "Scenario", "Avg Time (ns)", "Avg Time (µs)");
+    println!(
+        "{:<35} | {:<15} | {:<15}",
+        "Scenario", "Avg Time (ns)", "Avg Time (µs)"
+    );
     println!("{:-<35}-|-{:-<15}-|-{:-<15}", "", "", "");
 
     for (name, text, iterations) in scenarios {

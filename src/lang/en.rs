@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 
 use crate::lang::numbers::parse_number_en;
-use crate::lang::{apply_rules, GrammarRule, LanguageParser};
+use crate::lang::{GrammarRule, LanguageParser, apply_rules};
 use crate::resolve;
 use crate::types::*;
 
@@ -38,20 +38,14 @@ const KEYWORDS: &[&str] = &[
 ];
 
 const PREFIXES: &[&str] = &[
-    "tod", "toda", "tom", "tomo", "tomor", "tomorr", "tomorro",
-    "yes", "yest", "yeste", "yester", "yesterd", "yesterda",
-    "bet", "betw", "betwe", "betwee",
-    "mon", "mond", "monda",
-    "tue", "tues", "tuesd", "tuesda",
-    "wed", "wedn", "wedne", "wednes", "wednesd", "wednesda",
-    "thu", "thur", "thurs", "thursd", "thursda",
-    "fri", "frid", "frida",
-    "sat", "satu", "satur", "saturd", "saturda",
-    "sun", "sund", "sunda",
+    "tod", "toda", "tom", "tomo", "tomor", "tomorr", "tomorro", "yes", "yest", "yeste", "yester",
+    "yesterd", "yesterda", "bet", "betw", "betwe", "betwee", "mon", "mond", "monda", "tue", "tues",
+    "tuesd", "tuesda", "wed", "wedn", "wedne", "wednes", "wednesd", "wednesda", "thu", "thur",
+    "thurs", "thursd", "thursda", "fri", "frid", "frida", "sat", "satu", "satur", "saturd",
+    "saturda", "sun", "sund", "sunda",
 ];
 
-const NUM_WORD_PATTERN: &str =
-    r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)";
+const NUM_WORD_PATTERN: &str = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)";
 
 pub struct English {
     rules: Vec<GrammarRule>,
@@ -94,7 +88,9 @@ fn parse_weekday(s: &str) -> Option<chrono::Weekday> {
 }
 
 fn parse_num(s: &str) -> Option<u32> {
-    s.parse::<u32>().ok().or_else(|| parse_number_en(&s.to_lowercase()))
+    s.parse::<u32>()
+        .ok()
+        .or_else(|| parse_number_en(&s.to_lowercase()))
 }
 
 /// Shared day pattern for weekdays

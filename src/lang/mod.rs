@@ -30,11 +30,7 @@ pub trait LanguageParser: Send + Sync {
 }
 
 /// Shared helper: run all grammar rules against text and collect matches.
-pub fn apply_rules(
-    rules: &[GrammarRule],
-    text: &str,
-    now: DateTime<Utc>,
-) -> Vec<TimeMatch> {
+pub fn apply_rules(rules: &[GrammarRule], text: &str, now: DateTime<Utc>) -> Vec<TimeMatch> {
     use crate::types::{MatchConfidence, Span};
 
     let mut matches = Vec::new();
@@ -46,7 +42,10 @@ pub fn apply_rules(
             let range = m.start()..m.end();
 
             // Skip if this range is already covered by a longer match
-            if covered.iter().any(|c| c.start <= range.start && c.end >= range.end) {
+            if covered
+                .iter()
+                .any(|c| c.start <= range.start && c.end >= range.end)
+            {
                 continue;
             }
 
