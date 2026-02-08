@@ -24,6 +24,20 @@ const KEYWORDS: &[&str] = &[
     "stunden",
     "minute",
     "minuten",
+    "nächsten",
+    "naechsten",
+    "kommenden",
+    "letzten",
+    "vergangenen",
+    "diesen",
+    "montag",
+    "dienstag",
+    "mittwoch",
+    "donnerstag",
+    "freitag",
+    "samstag",
+    "sonntag",
+    "sonnabend",
 ];
 
 const PREFIXES: &[&str] = &[
@@ -31,6 +45,13 @@ const PREFIXES: &[&str] = &[
     "mor", "morg", "morge",
     "ges", "gest", "geste", "gester",
     "zwi", "zwis", "zwisc", "zwisch", "zwische", "zwischen",
+    "mon", "mont", "monta",
+    "die", "dien", "diens", "dienst", "diensta",
+    "mit", "mitt", "mittw", "mittwo", "mittwoc",
+    "don", "donn", "donne", "donner", "donners", "donnerst", "donnersta",
+    "fre", "frei", "freit", "freita",
+    "sam", "sams", "samst", "samsta",
+    "son", "sonn", "sonnt", "sonnta",
 ];
 
 const NUM_WORD_PATTERN: &str =
@@ -41,6 +62,19 @@ fn day_keyword_offset(s: &str) -> Option<i64> {
         "heute" => Some(0),
         "morgen" => Some(1),
         "gestern" => Some(-1),
+        _ => None,
+    }
+}
+
+fn parse_weekday(s: &str) -> Option<chrono::Weekday> {
+    match s.to_lowercase().as_str() {
+        "montag" => Some(chrono::Weekday::Mon),
+        "dienstag" => Some(chrono::Weekday::Tue),
+        "mittwoch" => Some(chrono::Weekday::Wed),
+        "donnerstag" => Some(chrono::Weekday::Thu),
+        "freitag" => Some(chrono::Weekday::Fri),
+        "samstag" | "sonnabend" => Some(chrono::Weekday::Sat),
+        "sonntag" => Some(chrono::Weekday::Sun),
         _ => None,
     }
 }
@@ -191,18 +225,37 @@ fn build_rules() -> Vec<GrammarRule> {
                 resolve::resolve_time_range_today(from, to, now)
             },
         },
-        // --- Time range: "zwischen 9 und 12 (Uhr)" ---
+        // --- More Time Ranges ---
+        GrammarRule {
+             pattern: Regex::new(
+                 r"(?i)\bzwischen\s+(?P<from>\d{1,2})\s+und\s+(?P<to>\d{1,2})\s*(?:Uhr)?\b",
+             )
+             .unwrap(),
+             kind: ExpressionKind::TimeRange,
+             resolver: |caps, now| {
+                 let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
+                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
+                 if from > 23 || to > 23 { return None; }
+                 resolve::resolve_time_range_today(from, to, now)
+             },
+         },
+        // --- Next/Last/This Weekday ---
         GrammarRule {
             pattern: Regex::new(
-                r"(?i)\bzwischen\s+(?P<from>\d{1,2})\s+und\s+(?P<to>\d{1,2})\s*(?:Uhr)?\b",
+                r"(?i)\b(?:am\s+)?(?P<dir>n[äae]chsten|kommenden|letzten|vergangenen|diesen)\s+(?P<day>montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag)\b"
             )
             .unwrap(),
-            kind: ExpressionKind::TimeRange,
+            kind: ExpressionKind::RelativeDay,
             resolver: |caps, now| {
-                let from = caps.name("from")?.as_str().parse::<u32>().ok()?;
-                let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
-                if from > 23 || to > 23 { return None; }
-                resolve::resolve_time_range_today(from, to, now)
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = match dir_str.as_str() {
+                    "nächsten" | "naechsten" | "kommenden" => 1,
+                    "letzten" | "vergangenen" => -1,
+                    "diesen" => 0,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
             },
         },
     ]

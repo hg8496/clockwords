@@ -269,9 +269,9 @@ GrammarRule {
 
 | Scenario | Approximate Time |
 |----------|-----------------|
-| No keywords in text (fast rejection) | < 5 µs |
-| Short sentence with 1 match | < 10 µs |
-| Paragraph with multiple matches | < 20 µs |
+| No keywords in text (fast rejection) | < 10 µs |
+| Short sentence with 1 match | < 20 µs |
+| Paragraph with multiple matches | < 25 µs |
 | Full rescan on keystroke (typical) | < 50 µs |
 
 The Aho-Corasick prefilter means that text without any time-related words is rejected in microseconds — the regex engine is never invoked.

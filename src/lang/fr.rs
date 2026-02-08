@@ -24,6 +24,16 @@ const KEYWORDS: &[&str] = &[
     "derniere",
     "la",
     "\u{e0}",
+    "ce",
+    "prochain",
+    "dernier",
+    "lundi",
+    "mardi",
+    "mercredi",
+    "jeudi",
+    "vendredi",
+    "samedi",
+    "dimanche",
 ];
 
 const PREFIXES: &[&str] = &[
@@ -32,6 +42,14 @@ const PREFIXES: &[&str] = &[
     "hie",
     "ent", "entr",
     "der", "dern", "derni",
+    "pro", "proc", "proch", "procha", "prochai",
+    "lun", "lund",
+    "mar", "mard",
+    "mer", "merc", "mercr", "mercre", "mercred",
+    "jeu", "jeud",
+    "ven", "vend", "vendr", "vendre", "vendred",
+    "sam", "same", "samed",
+    "dim", "dima", "diman", "dimanc", "dimanch",
 ];
 
 const NUM_WORD_PATTERN: &str =
@@ -47,6 +65,19 @@ fn day_keyword_offset(s: &str) -> Option<i64> {
         Some(-1)
     } else {
         None
+    }
+}
+
+fn parse_weekday(s: &str) -> Option<chrono::Weekday> {
+    match s.to_lowercase().as_str() {
+        "lundi" => Some(chrono::Weekday::Mon),
+        "mardi" => Some(chrono::Weekday::Tue),
+        "mercredi" => Some(chrono::Weekday::Wed),
+        "jeudi" => Some(chrono::Weekday::Thu),
+        "vendredi" => Some(chrono::Weekday::Fri),
+        "samedi" => Some(chrono::Weekday::Sat),
+        "dimanche" => Some(chrono::Weekday::Sun),
+        _ => None,
     }
 }
 
@@ -179,6 +210,54 @@ fn build_rules() -> Vec<GrammarRule> {
                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
                 if from > 23 || to > 23 { return None; }
                 resolve::resolve_time_range_today(from, to, now)
+            },
+        },
+        // --- Next/Last/This Weekday (Post-positive: "lundi prochain") ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?:le\s+)?(?P<day>lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(?P<dir>prochain|dernier)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = match dir_str.as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
+            },
+        },
+        // --- Next/Last Weekday (Pre-positive: "prochain lundi") ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?:le\s+)?(?P<dir>prochain|dernier)\s+(?P<day>lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = match dir_str.as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
+            },
+        },
+        // --- This Weekday: "ce lundi" ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\bce\s+(?P<day>lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, 0, now)
             },
         },
     ]

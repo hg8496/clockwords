@@ -25,12 +25,28 @@ const KEYWORDS: &[&str] = &[
     "days",
     "minute",
     "minutes",
+    "next",
+    "this",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
 ];
 
 const PREFIXES: &[&str] = &[
     "tod", "toda", "tom", "tomo", "tomor", "tomorr", "tomorro",
     "yes", "yest", "yeste", "yester", "yesterd", "yesterda",
     "bet", "betw", "betwe", "betwee",
+    "mon", "mond", "monda",
+    "tue", "tues", "tuesd", "tuesda",
+    "wed", "wedn", "wedne", "wednes", "wednesd", "wednesda",
+    "thu", "thur", "thurs", "thursd", "thursda",
+    "fri", "frid", "frida",
+    "sat", "satu", "satur", "saturd", "saturda",
+    "sun", "sund", "sunda",
 ];
 
 const NUM_WORD_PATTERN: &str =
@@ -59,6 +75,19 @@ fn day_keyword_offset(s: &str) -> Option<i64> {
         "today" => Some(0),
         "tomorrow" => Some(1),
         "yesterday" => Some(-1),
+        _ => None,
+    }
+}
+
+fn parse_weekday(s: &str) -> Option<chrono::Weekday> {
+    match s.to_lowercase().as_str() {
+        "monday" => Some(chrono::Weekday::Mon),
+        "tuesday" => Some(chrono::Weekday::Tue),
+        "wednesday" => Some(chrono::Weekday::Wed),
+        "thursday" => Some(chrono::Weekday::Thu),
+        "friday" => Some(chrono::Weekday::Fri),
+        "saturday" => Some(chrono::Weekday::Sat),
+        "sunday" => Some(chrono::Weekday::Sun),
         _ => None,
     }
 }
@@ -182,6 +211,25 @@ fn build_rules() -> Vec<GrammarRule> {
                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
                 if from > 23 || to > 23 { return None; }
                 resolve::resolve_time_range_today(from, to, now)
+            },
+        },
+        // --- Next/Last/This Weekday ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<day>monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = match dir_str.as_str() {
+                    "next" => 1,
+                    "last" => -1,
+                    "this" => 0,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
             },
         },
     ]

@@ -92,3 +92,28 @@ pub fn to_24h(hour: u32, ampm: &str) -> u32 {
         hour
     }
 }
+
+/// Resolve a relative weekday to a full-day range.
+///
+/// `weekday`: 0=Mon, 1=Tue, ..., 6=Sun (or use chrono::Weekday).
+/// `direction`:
+/// - `1`: "Next Monday" (next week's Monday)
+/// - `-1`: "Last Monday" (last week's Monday)
+/// - `0`: "This Monday" (this coming Monday, or today if it's Monday)
+pub fn resolve_weekday(weekday: chrono::Weekday, direction: i64, now: DateTime<Utc>) -> Option<ResolvedTime> {
+    use chrono::Datelike;
+    let current_weekday = now.weekday();
+
+    // "This <Day>": The next occurrence (today or future within 6 days).
+    let offset_this =
+        (weekday.number_from_monday() as i64 - current_weekday.number_from_monday() as i64 + 7) % 7;
+
+    let true_offset = match direction {
+        1 => offset_this + 7,  // Jump to next week
+        -1 => offset_this - 7, // Jump to last week
+        0 => offset_this,      // Stay in this cycle
+        _ => return None,
+    };
+
+    resolve_relative_day(true_offset, now)
+}

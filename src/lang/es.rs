@@ -21,10 +21,24 @@ const KEYWORDS: &[&str] = &[
     "horas",
     "minuto",
     "minutos",
-    "entre",
+    "la",
     "las",
     "\u{fa}ltima",
     "ultima",
+    "pr\u{f3}ximo",
+    "proximo",
+    "pasado",
+    "que viene",
+    "este",
+    "lunes",
+    "martes",
+    "mi\u{e9}rcoles",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "s\u{e1}bado",
+    "sabado",
+    "domingo",
 ];
 
 const PREFIXES: &[&str] = &[
@@ -34,6 +48,16 @@ const PREFIXES: &[&str] = &[
     "ent", "entr",
     "hac",
     "últ", "ulti", "ultim",
+    "pró", "pro", "prox", "próx", "próxi", "proxi",
+    "pas", "pasa", "pasad",
+    "est", "este",
+    "lun", "lune",
+    "mar", "mart", "marte",
+    "mié", "mie", "mier", "miérc", "mierc",
+    "jue", "juev", "jueve",
+    "vie", "vier", "viern", "vierne",
+    "sáb", "sab", "sába", "saba", "sábad", "sabad",
+    "dom", "domi", "domin", "doming",
 ];
 
 const NUM_WORD_PATTERN: &str =
@@ -45,6 +69,19 @@ fn day_keyword_offset(s: &str) -> Option<i64> {
         "hoy" => Some(0),
         "ma\u{f1}ana" | "manana" => Some(1),
         "ayer" => Some(-1),
+        _ => None,
+    }
+}
+
+fn parse_weekday(s: &str) -> Option<chrono::Weekday> {
+    match s.to_lowercase().as_str() {
+        "lunes" => Some(chrono::Weekday::Mon),
+        "martes" => Some(chrono::Weekday::Tue),
+        "mi\u{e9}rcoles" | "miercoles" => Some(chrono::Weekday::Wed),
+        "jueves" => Some(chrono::Weekday::Thu),
+        "viernes" => Some(chrono::Weekday::Fri),
+        "s\u{e1}bado" | "sabado" => Some(chrono::Weekday::Sat),
+        "domingo" => Some(chrono::Weekday::Sun),
         _ => None,
     }
 }
@@ -177,6 +214,43 @@ fn build_rules() -> Vec<GrammarRule> {
                 let to = caps.name("to")?.as_str().parse::<u32>().ok()?;
                 if from > 23 || to > 23 { return None; }
                 resolve::resolve_time_range_today(from, to, now)
+            },
+        },
+        // --- Next/Last/This Weekday (Pre-positive: "el próximo lunes") ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?:el\s+)?(?P<dir>pr[oó]ximo|pasado|este)\s+(?P<day>lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = match dir_str.as_str() {
+                    "próximo" | "proximo" => 1,
+                    "pasado" => -1,
+                    "este" => 0,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
+            },
+        },
+        // --- Next/Last/This Weekday (Post-positive: "el lunes que viene") ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?:el\s+)?(?P<day>lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\s+(?P<dir>pr[oó]ximo|pasado|que\s+viene)\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::RelativeDay,
+            resolver: |caps, now| {
+                let dir_str = caps.name("dir")?.as_str().to_lowercase();
+                let direction = if dir_str.contains("pasado") {
+                     -1 
+                } else { 
+                     1 // "próximo" or "que viene"
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                resolve::resolve_weekday(weekday, direction, now)
             },
         },
     ]
