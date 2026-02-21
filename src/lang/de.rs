@@ -151,28 +151,40 @@ fn weekday_direction(s: &str) -> Option<i64> {
     }
 }
 
+/// Parse hour and optional :MM minute from captures (24h format).
+fn parse_hm(caps: &regex::Captures) -> Option<(u32, u32)> {
+    let h = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+    let m = caps
+        .name("min")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    if h > 23 || m > 59 {
+        return None;
+    }
+    Some((h, m))
+}
+
 fn build_rules() -> Vec<GrammarRule> {
     let num = NUM_WORD_PATTERN;
     let wd = WEEKDAY_PAT;
 
     vec![
         // ============================================================
-        //  Combined: Weekday + "um X Uhr"
-        //  "letzten Freitag um 15 Uhr"
+        //  Combined: Weekday + "um H[:MM] [Uhr]"
+        //  "letzten Freitag um 15:30 Uhr", "letzten Freitag um 15 Uhr"
         // ============================================================
         GrammarRule {
             pattern: Regex::new(&format!(
-                r"(?i)\b(?:am\s+)?(?P<dir>n[äae]chsten|kommenden|letzten|vergangenen|diesen)\s+(?P<wd>{wd})\s+um\s+(?P<hour>\d{{1,2}})\s+Uhr\b"
+                r"(?i)\b(?:am\s+)?(?P<dir>n[äae]chsten|kommenden|letzten|vergangenen|diesen)\s+(?P<wd>{wd})\s+um\s+(?P<hour>\d{{1,2}})(?::(?P<min>\d{{2}})(?:\s+Uhr)?|\s+Uhr)\b"
             ))
             .unwrap(),
             kind: ExpressionKind::Combined,
             resolver: |caps, now, tz| {
                 let direction = weekday_direction(caps.name("dir")?.as_str())?;
                 let weekday = parse_weekday(caps.name("wd")?.as_str())?;
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                if hour > 23 { return None; }
+                let (h, m) = parse_hm(caps)?;
                 let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
-                resolve::resolve_time_on_date(date, hour, 0, tz)
+                resolve::resolve_time_on_date(date, h, m, tz)
             },
         },
         // ============================================================
@@ -215,19 +227,18 @@ fn build_rules() -> Vec<GrammarRule> {
                 resolve::resolve_time_range_on_date(date, from, to, tz)
             },
         },
-        // --- Combined: "gestern um 15 Uhr" ---
+        // --- Combined: "gestern um 15[:30] [Uhr]" ---
         GrammarRule {
             pattern: Regex::new(
-                r"(?i)\b(?P<day>heute|morgen|gestern)\s+um\s+(?P<hour>\d{1,2})\s+Uhr\b",
+                r"(?i)\b(?P<day>heute|morgen|gestern)\s+um\s+(?P<hour>\d{1,2})(?::(?P<min>\d{2})(?:\s+Uhr)?|\s+Uhr)\b",
             )
             .unwrap(),
             kind: ExpressionKind::Combined,
             resolver: |caps, now, tz| {
                 let offset = day_keyword_offset(caps.name("day")?.as_str())?;
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                if hour > 23 { return None; }
+                let (h, m) = parse_hm(caps)?;
                 let date = resolve::resolve_day_offset(offset, now, tz)?;
-                resolve::resolve_time_on_date(date, hour, 0, tz)
+                resolve::resolve_time_on_date(date, h, m, tz)
             },
         },
         // --- Combined: "gestern von 9 bis 12 Uhr" ---
@@ -295,14 +306,13 @@ fn build_rules() -> Vec<GrammarRule> {
                 resolve::resolve_relative_day(n as i64, now, tz)
             },
         },
-        // --- Time spec: "um 15 Uhr" ---
+        // --- Time spec: "um 15[:30] [Uhr]" ---
         GrammarRule {
-            pattern: Regex::new(r"(?i)\bum\s+(?P<hour>\d{1,2})\s+Uhr\b").unwrap(),
+            pattern: Regex::new(r"(?i)\bum\s+(?P<hour>\d{1,2})(?::(?P<min>\d{2})(?:\s+Uhr)?|\s+Uhr)\b").unwrap(),
             kind: ExpressionKind::TimeSpecification,
             resolver: |caps, now, tz| {
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                if hour > 23 { return None; }
-                resolve::resolve_time_today(hour, 0, now, tz)
+                let (h, m) = parse_hm(caps)?;
+                resolve::resolve_time_today(h, m, now, tz)
             },
         },
         // --- Time range: "die letzte Stunde/Minute" ---

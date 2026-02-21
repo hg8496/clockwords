@@ -30,7 +30,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-clockwords = "0.1"
+clockwords = "0.3"
 ```
 
 ### Basic Usage
@@ -147,10 +147,12 @@ Supports both digits and written-out number words (1–30).
 
 | Language | Examples |
 |----------|----------|
-| English  | `at 3pm`, `at 3 am`, `13 o'clock` |
-| German   | `um 15 Uhr` |
-| French   | `à 13h` |
-| Spanish  | `a las 3` |
+| English  | `at 3pm`, `at 3 am`, `13 o'clock`, `at 3:30pm`, `11:30am`, `at 15:30` |
+| German   | `um 15 Uhr`, `um 15:30 Uhr`, `um 15:30` |
+| French   | `à 13h`, `à 13h30`, `à 13:30` |
+| Spanish  | `a las 3`, `a las 15:30` |
+
+Colon-delimited minutes (`H:MM`) are supported in all languages. In English, am/pm is optional — bare `H:MM` with `at` is treated as 24-hour time. French supports both `h` and `:` as separators (`13h30` and `13:30`).
 
 Resolves to a `Point` in time.
 
@@ -173,19 +175,19 @@ Any day reference (relative day, weekday, or day offset) can be combined with a 
 
 | Language | Examples |
 |----------|----------|
-| English  | `yesterday at 3pm`, `tomorrow between 9 and 12`, `yesterday from 9 to 11` |
-| German   | `gestern um 15 Uhr`, `gestern von 9 bis 12 Uhr` |
-| French   | `hier à 13h`, `hier entre 9 et 12 heures` |
-| Spanish  | `ayer a las 3`, `ayer entre las 9 y las 12` |
+| English  | `yesterday at 3pm`, `yesterday at 3:30pm`, `yesterday at 15:30`, `tomorrow between 9 and 12`, `yesterday from 9 to 11` |
+| German   | `gestern um 15 Uhr`, `gestern um 15:30 Uhr`, `gestern um 15:30`, `gestern von 9 bis 12 Uhr` |
+| French   | `hier à 13h`, `hier à 13h30`, `hier à 13:30`, `hier entre 9 et 12 heures` |
+| Spanish  | `ayer a las 3`, `ayer a las 15:30`, `ayer entre las 9 y las 12` |
 
 **Weekday + time:**
 
 | Language | Examples |
 |----------|----------|
-| English  | `last Friday at 3pm`, `last Friday from 9 to eleven`, `next Monday between 9 and 12` |
-| German   | `letzten Freitag um 15 Uhr`, `letzten Freitag von 9 bis 12 Uhr`, `diesen Mittwoch zwischen 9 und 11` |
-| French   | `vendredi dernier à 13h`, `vendredi dernier entre 9 et 12 heures`, `ce lundi à 14h` |
-| Spanish  | `el viernes pasado a las 3`, `el pasado viernes entre las 9 y las 12`, `el próximo lunes a las 9` |
+| English  | `last Friday at 3pm`, `last Friday at 3:30pm`, `last Friday at 15:30`, `last Friday from 9 to eleven`, `next Monday between 9 and 12` |
+| German   | `letzten Freitag um 15 Uhr`, `letzten Freitag um 15:30 Uhr`, `nächsten Montag um 9:15`, `diesen Mittwoch zwischen 9 und 11` |
+| French   | `vendredi dernier à 13h`, `vendredi dernier à 13h30`, `vendredi dernier à 13:30`, `ce lundi à 14h30`, `ce mercredi entre 9 et 11 heures` |
+| Spanish  | `el viernes pasado a las 3`, `el viernes pasado a las 3:30`, `el próximo lunes a las 9:30`, `el pasado viernes entre las 9 y las 12` |
 
 Combined expressions resolve to either a `Point` (day + time spec) or a `Range` (day + time range) on the specified day.
 
@@ -324,11 +326,10 @@ GrammarRule {
 ## Performance
 
 | Scenario | Approximate Time |
-|----------|-----------------|
-| No keywords in text (fast rejection) | < 10 µs |
-| Short sentence with 1 match | < 20 µs |
-| Paragraph with multiple matches | < 25 µs |
-| Full rescan on keystroke (typical) | < 50 µs |
+|----------|------------------|
+| No keywords in text (fast rejection) | ~8 µs |
+| Short sentence with 1 match | ~17 µs |
+| Paragraph with multiple matches | ~18 µs |
 
 The Aho-Corasick prefilter means that text without any time-related words is rejected in microseconds — the regex engine is never invoked.
 
@@ -338,13 +339,14 @@ The Aho-Corasick prefilter means that text without any time-related words is rej
 cargo test
 ```
 
-The test suite includes **106 integration tests + 1 doctest** covering:
+The test suite includes **141 integration tests + 1 doctest** covering:
 - All four languages with various expression types
 - Combined weekday + time expressions across all languages
 - Timezone-aware resolution (Europe/Berlin, US/Eastern, UTC)
 - Cross-midnight timezone boundary handling
 - Accent-tolerant variants (with and without diacritics)
 - Embedded expressions in longer sentences
+- Colon-delimited time parsing (`3:30pm`, `15:30`, `13h30`, `13:30`)
 - `from X to Y` with number words (`nine to five`)
 - Incremental/partial matching
 - Edge cases (empty input, no false positives)

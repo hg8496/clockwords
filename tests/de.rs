@@ -1,100 +1,127 @@
 use chrono::TimeZone;
-use clockwords::{ExpressionKind, ResolvedTime, Span, scanner_for_languages};
+use clockwords::{ExpressionKind, ResolvedTime, scanner_for_languages};
 
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc.with_ymd_and_hms(2026, 2, 7, 14, 30, 0).unwrap()
 }
 
-#[test]
-fn de_heute() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("heute", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::RelativeDay);
-}
-
-#[test]
-fn de_gestern() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("gestern", now());
-    assert_eq!(m.len(), 1);
-    let expected_start = chrono::Utc.with_ymd_and_hms(2026, 2, 6, 0, 0, 0).unwrap();
-    let expected_end = chrono::Utc.with_ymd_and_hms(2026, 2, 7, 0, 0, 0).unwrap();
-    assert_eq!(
-        m[0].resolved,
-        ResolvedTime::Range {
-            start: expected_start,
-            end: expected_end,
+macro_rules! point_test {
+    ($name:ident, $lang:expr, $input:expr, $kind:expr, $expected:expr) => {
+        #[test]
+        fn $name() {
+            let s = scanner_for_languages(&[$lang]);
+            let m = s.scan($input, now());
+            assert_eq!(
+                m.len(),
+                1,
+                "expected 1 match for {:?}, got {}",
+                $input,
+                m.len()
+            );
+            assert_eq!(m[0].kind, $kind);
+            assert_eq!(m[0].resolved, ResolvedTime::Point($expected));
         }
-    );
+    };
 }
 
-#[test]
-fn de_morgen() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("morgen", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::RelativeDay);
-}
-
-#[test]
-fn de_vor_3_tagen() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("vor 3 Tagen", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].span, Span::new(0, 11));
-    assert_eq!(m[0].kind, ExpressionKind::RelativeDayOffset);
-    let expected_start = chrono::Utc.with_ymd_and_hms(2026, 2, 4, 0, 0, 0).unwrap();
-    assert_eq!(
-        m[0].resolved,
-        ResolvedTime::Range {
-            start: expected_start,
-            end: expected_start + chrono::Duration::days(1),
+macro_rules! range_test {
+    ($name:ident, $lang:expr, $input:expr, $kind:expr, $start:expr, $end:expr) => {
+        #[test]
+        fn $name() {
+            let s = scanner_for_languages(&[$lang]);
+            let m = s.scan($input, now());
+            assert_eq!(
+                m.len(),
+                1,
+                "expected 1 match for {:?}, got {}",
+                $input,
+                m.len()
+            );
+            assert_eq!(m[0].kind, $kind);
+            assert_eq!(
+                m[0].resolved,
+                ResolvedTime::Range {
+                    start: $start,
+                    end: $end
+                }
+            );
         }
-    );
+    };
 }
 
-#[test]
-fn de_vor_zwei_tagen() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("vor zwei Tagen", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::RelativeDayOffset);
-    let expected_start = chrono::Utc.with_ymd_and_hms(2026, 2, 5, 0, 0, 0).unwrap();
-    assert_eq!(
-        m[0].resolved,
-        ResolvedTime::Range {
-            start: expected_start,
-            end: expected_start + chrono::Duration::days(1),
+macro_rules! kind_test {
+    ($name:ident, $lang:expr, $input:expr, $kind:expr) => {
+        #[test]
+        fn $name() {
+            let s = scanner_for_languages(&[$lang]);
+            let m = s.scan($input, now());
+            assert_eq!(
+                m.len(),
+                1,
+                "expected 1 match for {:?}, got {}",
+                $input,
+                m.len()
+            );
+            assert_eq!(m[0].kind, $kind);
         }
-    );
+    };
 }
 
-#[test]
-fn de_in_3_tagen() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("in 3 Tagen", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::RelativeDayOffset);
-    let expected_start = chrono::Utc.with_ymd_and_hms(2026, 2, 10, 0, 0, 0).unwrap();
-    assert_eq!(
-        m[0].resolved,
-        ResolvedTime::Range {
-            start: expected_start,
-            end: expected_start + chrono::Duration::days(1),
-        }
-    );
-}
+// --- Relative days ---
 
-#[test]
-fn de_um_15_uhr() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("um 15 Uhr", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::TimeSpecification);
-    let expected = chrono::Utc.with_ymd_and_hms(2026, 2, 7, 15, 0, 0).unwrap();
-    assert_eq!(m[0].resolved, ResolvedTime::Point(expected));
-}
+kind_test!(de_heute, "de", "heute", ExpressionKind::RelativeDay);
+
+range_test!(
+    de_gestern,
+    "de",
+    "gestern",
+    ExpressionKind::RelativeDay,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 0, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 0, 0, 0).unwrap()
+);
+
+kind_test!(de_morgen, "de", "morgen", ExpressionKind::RelativeDay);
+
+// --- Day offsets ---
+
+range_test!(
+    de_vor_3_tagen,
+    "de",
+    "vor 3 Tagen",
+    ExpressionKind::RelativeDayOffset,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 4, 0, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 5, 0, 0, 0).unwrap()
+);
+
+range_test!(
+    de_vor_zwei_tagen,
+    "de",
+    "vor zwei Tagen",
+    ExpressionKind::RelativeDayOffset,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 5, 0, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 0, 0, 0).unwrap()
+);
+
+range_test!(
+    de_in_3_tagen,
+    "de",
+    "in 3 Tagen",
+    ExpressionKind::RelativeDayOffset,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 10, 0, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 11, 0, 0, 0).unwrap()
+);
+
+// --- Time specifications ---
+
+point_test!(
+    de_um_15_uhr,
+    "de",
+    "um 15 Uhr",
+    ExpressionKind::TimeSpecification,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 15, 0, 0).unwrap()
+);
+
+// --- Time ranges ---
 
 #[test]
 fn de_die_letzte_stunde() {
@@ -112,59 +139,53 @@ fn de_die_letzte_stunde() {
     );
 }
 
-#[test]
-fn de_letzte_stunde() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("letzte Stunde", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::TimeRange);
-}
+kind_test!(
+    de_letzte_stunde,
+    "de",
+    "letzte Stunde",
+    ExpressionKind::TimeRange
+);
 
-#[test]
-fn de_von_9_bis_12_uhr() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("von 9 bis 12 Uhr", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::TimeRange);
-    let start = chrono::Utc.with_ymd_and_hms(2026, 2, 7, 9, 0, 0).unwrap();
-    let end = chrono::Utc.with_ymd_and_hms(2026, 2, 7, 12, 0, 0).unwrap();
-    assert_eq!(m[0].resolved, ResolvedTime::Range { start, end });
-}
+range_test!(
+    de_von_9_bis_12_uhr,
+    "de",
+    "von 9 bis 12 Uhr",
+    ExpressionKind::TimeRange,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 9, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 12, 0, 0).unwrap()
+);
 
-#[test]
-fn de_zwischen_9_und_12_uhr() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("zwischen 9 und 12 Uhr", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::TimeRange);
-}
+kind_test!(
+    de_zwischen_9_und_12_uhr,
+    "de",
+    "zwischen 9 und 12 Uhr",
+    ExpressionKind::TimeRange
+);
 
-#[test]
-fn de_gestern_um_15_uhr() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("gestern um 15 Uhr", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::Combined);
-    let expected = chrono::Utc.with_ymd_and_hms(2026, 2, 6, 15, 0, 0).unwrap();
-    assert_eq!(m[0].resolved, ResolvedTime::Point(expected));
-}
+// --- Combined ---
 
-#[test]
-fn de_gestern_von_9_bis_12_uhr() {
-    let s = scanner_for_languages(&["de"]);
-    let m = s.scan("gestern von 9 bis 12 Uhr", now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::Combined);
-    let start = chrono::Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap();
-    let end = chrono::Utc.with_ymd_and_hms(2026, 2, 6, 12, 0, 0).unwrap();
-    assert_eq!(m[0].resolved, ResolvedTime::Range { start, end });
-}
+point_test!(
+    de_gestern_um_15_uhr,
+    "de",
+    "gestern um 15 Uhr",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 15, 0, 0).unwrap()
+);
 
-#[test]
-fn de_embedded_in_sentence() {
-    let s = scanner_for_languages(&["de"]);
-    let text = "Die letzte Stunde habe ich an der Bibliothek gearbeitet";
-    let m = s.scan(text, now());
-    assert_eq!(m.len(), 1);
-    assert_eq!(m[0].kind, ExpressionKind::TimeRange);
-}
+range_test!(
+    de_gestern_von_9_bis_12_uhr,
+    "de",
+    "gestern von 9 bis 12 Uhr",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 12, 0, 0).unwrap()
+);
+
+// --- Embedding ---
+
+kind_test!(
+    de_embedded_in_sentence,
+    "de",
+    "Die letzte Stunde habe ich an der Bibliothek gearbeitet",
+    ExpressionKind::TimeRange
+);

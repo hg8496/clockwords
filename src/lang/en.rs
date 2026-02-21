@@ -117,6 +117,44 @@ fn resolve_hour(hour: u32, ampm: &str) -> Option<u32> {
     if h > 23 { None } else { Some(h) }
 }
 
+/// Parse hour with optional :MM and optional am/pm/o'clock from captures.
+/// Handles both colon form (H:MM with optional am/pm in "ampm" group)
+/// and whole-hour form (H with suffix in "sfx" group).
+fn parse_hm_ampm(caps: &regex::Captures) -> Option<(u32, u32)> {
+    let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+    let min = caps
+        .name("min")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    if min > 59 {
+        return None;
+    }
+    let ampm = caps.name("ampm").or(caps.name("sfx"));
+    let h = match ampm {
+        Some(ap) => resolve_hour(hour, ap.as_str())?,
+        None => {
+            if hour > 23 {
+                return None;
+            }
+            hour
+        }
+    };
+    Some((h, min))
+}
+
+/// Parse hour and optional :MM minute from captures (24h format, no am/pm).
+fn parse_hm(caps: &regex::Captures) -> Option<(u32, u32)> {
+    let h = caps.name("hour")?.as_str().parse::<u32>().ok()?;
+    let m = caps
+        .name("min")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    if h > 23 || m > 59 {
+        return None;
+    }
+    Some((h, m))
+}
+
 fn build_rules() -> Vec<GrammarRule> {
     // Number pattern for inline use
     let num = NUM_WORD_PATTERN;
@@ -125,21 +163,20 @@ fn build_rules() -> Vec<GrammarRule> {
     vec![
         // ============================================================
         //  Combined: Weekday + time spec
-        //  "last Friday at 3pm", "next Monday at 13 o'clock"
+        //  "last Friday at 3:30pm", "next Monday at 15:30", "last Friday at 3pm"
         // ============================================================
         GrammarRule {
             pattern: Regex::new(&format!(
-                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+at\s+(?P<hour>\d{{1,2}})\s*(?P<ampm>am|pm|o'?clock)\b"
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+at\s+(?P<hour>\d{{1,2}})(?::(?P<min>\d{{2}})(?:\s*(?P<ampm>am|pm))?|\s*(?P<sfx>am|pm|o'?clock))\b"
             ))
             .unwrap(),
             kind: ExpressionKind::Combined,
             resolver: |caps, now, tz| {
                 let direction = weekday_direction(caps.name("dir")?.as_str())?;
                 let weekday = parse_weekday(caps.name("wd")?.as_str())?;
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
+                let (h, m) = parse_hm_ampm(caps)?;
                 let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
-                resolve::resolve_time_on_date(date, h, 0, tz)
+                resolve::resolve_time_on_date(date, h, m, tz)
             },
         },
         // ============================================================
@@ -184,20 +221,19 @@ fn build_rules() -> Vec<GrammarRule> {
         },
         // ============================================================
         //  Combined: relative day + at time
-        //  "yesterday at 3pm", "tomorrow at 13 o'clock"
+        //  "yesterday at 3:30pm", "tomorrow at 15:30", "yesterday at 3pm"
         // ============================================================
         GrammarRule {
             pattern: Regex::new(
-                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+at\s+(?P<hour>\d{1,2})\s*(?P<ampm>am|pm|o'?clock)\b"
+                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+at\s+(?P<hour>\d{1,2})(?::(?P<min>\d{2})(?:\s*(?P<ampm>am|pm))?|\s*(?P<sfx>am|pm|o'?clock))\b"
             )
             .unwrap(),
             kind: ExpressionKind::Combined,
             resolver: |caps, now, tz| {
                 let offset = day_keyword_offset(caps.name("day")?.as_str())?;
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
+                let (h, m) = parse_hm_ampm(caps)?;
                 let date = resolve::resolve_day_offset(offset, now, tz)?;
-                resolve::resolve_time_on_date(date, h, 0, tz)
+                resolve::resolve_time_on_date(date, h, m, tz)
             },
         },
         // ============================================================
@@ -271,17 +307,28 @@ fn build_rules() -> Vec<GrammarRule> {
                 resolve::resolve_relative_day(-(n as i64), now, tz)
             },
         },
-        // --- Time spec: "at 3pm", "at 3 am", "13 o'clock" ---
+        // --- Time spec with suffix: "at 3:30pm", "11:30am", "at 3pm", "3 o'clock" ---
         GrammarRule {
             pattern: Regex::new(
-                r"(?i)\b(?:at\s+)?(?P<hour>\d{1,2})\s*(?P<ampm>am|pm|o'?clock)\b"
+                r"(?i)\b(?:at\s+)?(?P<hour>\d{1,2})(?::(?P<min>\d{2}))?\s*(?P<ampm>am|pm|o'?clock)\b"
             )
             .unwrap(),
             kind: ExpressionKind::TimeSpecification,
             resolver: |caps, now, tz| {
-                let hour = caps.name("hour")?.as_str().parse::<u32>().ok()?;
-                let h = resolve_hour(hour, caps.name("ampm")?.as_str())?;
-                resolve::resolve_time_today(h, 0, now, tz)
+                let (h, m) = parse_hm_ampm(caps)?;
+                resolve::resolve_time_today(h, m, now, tz)
+            },
+        },
+        // --- Time spec bare colon: "at 15:30", "at 9:00" ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\bat\s+(?P<hour>\d{1,2}):(?P<min>\d{2})\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::TimeSpecification,
+            resolver: |caps, now, tz| {
+                let (h, m) = parse_hm(caps)?;
+                resolve::resolve_time_today(h, m, now, tz)
             },
         },
         // --- Time range: "the last hour/minute" ---
