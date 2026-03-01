@@ -80,6 +80,7 @@ fn parse_num(s: &str) -> Option<u32> {
 
 pub struct French {
     rules: Vec<GrammarRule>,
+    regex_set: regex::RegexSet,
 }
 
 impl Default for French {
@@ -90,9 +91,9 @@ impl Default for French {
 
 impl French {
     pub fn new() -> Self {
-        Self {
-            rules: build_rules(),
-        }
+        let rules = build_rules();
+        let regex_set = regex::RegexSet::new(rules.iter().map(|r| r.pattern.as_str())).unwrap();
+        Self { rules, regex_set }
     }
 }
 
@@ -364,6 +365,6 @@ impl LanguageParser for French {
     }
 
     fn parse(&self, text: &str, now: DateTime<Utc>, tz: Tz) -> Vec<TimeMatch> {
-        apply_rules(&self.rules, text, now, tz)
+        apply_rules(&self.rules, &self.regex_set, text, now, tz)
     }
 }

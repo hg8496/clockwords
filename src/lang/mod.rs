@@ -34,6 +34,7 @@ pub trait LanguageParser: Send + Sync {
 /// Shared helper: run all grammar rules against text and collect matches.
 pub fn apply_rules(
     rules: &[GrammarRule],
+    regex_set: &regex::RegexSet,
     text: &str,
     now: DateTime<Utc>,
     tz: Tz,
@@ -41,9 +42,16 @@ pub fn apply_rules(
     use crate::types::{MatchConfidence, Span};
 
     let mut matches = Vec::new();
+
+    let matches_set = regex_set.matches(text);
+    if !matches_set.matched_any() {
+        return matches;
+    }
+
     let mut covered: Vec<std::ops::Range<usize>> = Vec::new();
 
-    for rule in rules {
+    for rule_idx in matches_set.into_iter() {
+        let rule = &rules[rule_idx];
         for caps in rule.pattern.captures_iter(text) {
             let m = caps.get(0).unwrap();
             let range = m.start()..m.end();

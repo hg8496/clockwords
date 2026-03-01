@@ -87,11 +87,18 @@ impl TimeExpressionScanner {
     }
 
     fn find_partial_matches(&self, text: &str, _now: DateTime<Utc>, matches: &mut Vec<TimeMatch>) {
+        if text.is_empty() {
+            return;
+        }
+
+        let text_lower = text.to_lowercase();
+
         // Only check if the text ends with a prefix of a time keyword.
         // This detects the user currently typing a time expression.
         for lang in &self.languages {
             for prefix in lang.keyword_prefixes() {
-                if text.to_lowercase().ends_with(&prefix.to_lowercase()) {
+                // keyword prefixes are generally lowercase constants
+                if text_lower.ends_with(&prefix.to_lowercase()) {
                     let start = text.len() - prefix.len();
                     // Check that this prefix starts at a word boundary
                     if start > 0 {

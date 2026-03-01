@@ -52,24 +52,6 @@ macro_rules! range_test {
     };
 }
 
-macro_rules! kind_test {
-    ($name:ident, $lang:expr, $input:expr, $kind:expr) => {
-        #[test]
-        fn $name() {
-            let s = scanner_for_languages(&[$lang]);
-            let m = s.scan($input, now());
-            assert_eq!(
-                m.len(),
-                1,
-                "expected 1 match for {:?}, got {}",
-                $input,
-                m.len()
-            );
-            assert_eq!(m[0].kind, $kind);
-        }
-    };
-}
-
 // ================================================================
 //  English
 // ================================================================
