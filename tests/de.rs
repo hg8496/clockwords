@@ -181,6 +181,62 @@ range_test!(
     chrono::Utc.with_ymd_and_hms(2026, 2, 6, 12, 0, 0).unwrap()
 );
 
+// --- Combined: HH:MM ranges with minutes ---
+
+range_test!(
+    de_heute_von_hhmm_bis_hhmm,
+    "de",
+    "heute von 10:15 bis 13:45",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    de_heute_von_hhmm_dash_hhmm,
+    "de",
+    "heute von 10:15 - 13:45",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    de_heute_hhmm_dash_hhmm,
+    "de",
+    "heute 8:30 - 9:30",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 8, 30, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 9, 30, 0).unwrap()
+);
+
+range_test!(
+    de_gestern_von_hhmm_bis_hhmm,
+    "de",
+    "gestern von 9:00 bis 11:30",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
+    de_von_hhmm_bis_hhmm,
+    "de",
+    "von 10:15 bis 13:45",
+    ExpressionKind::TimeRange,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    de_von_hhmm_dash_hhmm,
+    "de",
+    "von 9:30 - 11:00",
+    ExpressionKind::TimeRange,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 9, 30, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 11, 0, 0).unwrap()
+);
+
 // --- Embedding ---
 
 kind_test!(

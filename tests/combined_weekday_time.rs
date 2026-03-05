@@ -73,6 +73,24 @@ point_test!(
 );
 
 range_test!(
+    en_last_friday_hhmm_to_hhmm,
+    "en",
+    "last Friday from 10:15 to 13:45",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    en_last_friday_hhmm_dash_hhmm,
+    "en",
+    "last Friday 9:00 - 11:30",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
     en_last_friday_between_9_and_12,
     "en",
     "last Friday between 9 and 12",
@@ -156,6 +174,24 @@ range_test!(
 );
 
 range_test!(
+    de_letzten_freitag_von_hhmm_bis_hhmm,
+    "de",
+    "letzten Freitag von 10:15 bis 13:45",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    de_letzten_freitag_hhmm_dash_hhmm,
+    "de",
+    "letzten Freitag 9:00 - 11:30",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
     de_diesen_mittwoch_zwischen_9_und_11,
     "de",
     "diesen Mittwoch zwischen 9 und 11",
@@ -194,6 +230,24 @@ point_test!(
 );
 
 range_test!(
+    fr_vendredi_dernier_de_hhmm_a_hhmm,
+    "fr",
+    "vendredi dernier de 10:15 \u{e0} 13:45",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    fr_vendredi_dernier_hhmm_dash_hhmm,
+    "fr",
+    "vendredi dernier 9:00 - 11:30",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
     fr_vendredi_dernier_entre_9_et_12,
     "fr",
     "vendredi dernier entre 9 et 12 heures",
@@ -208,6 +262,15 @@ point_test!(
     "ce lundi à 14h",
     ExpressionKind::Combined,
     Utc.with_ymd_and_hms(2026, 2, 9, 14, 0, 0).unwrap()
+);
+
+range_test!(
+    fr_ce_lundi_de_hhmm_a_hhmm,
+    "fr",
+    "ce lundi de 10:15 \u{e0} 13:45",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 9, 10, 15, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 9, 13, 45, 0).unwrap()
 );
 
 range_test!(
@@ -237,6 +300,33 @@ point_test!(
     "el viernes pasado a las 3",
     ExpressionKind::Combined,
     Utc.with_ymd_and_hms(2026, 2, 6, 3, 0, 0).unwrap()
+);
+
+range_test!(
+    es_viernes_pasado_de_hhmm_a_hhmm,
+    "es",
+    "el viernes pasado de 10:15 a 13:45",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    es_viernes_pasado_hhmm_dash_hhmm,
+    "es",
+    "el viernes pasado 9:00 - 11:30",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
+    es_proximo_lunes_de_hhmm_a_hhmm,
+    "es",
+    "el pr\u{f3}ximo lunes de 9:00 a 11:30",
+    ExpressionKind::Combined,
+    Utc.with_ymd_and_hms(2026, 2, 16, 9, 0, 0).unwrap(),
+    Utc.with_ymd_and_hms(2026, 2, 16, 11, 30, 0).unwrap()
 );
 
 range_test!(

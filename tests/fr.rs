@@ -172,6 +172,44 @@ range_test!(
     chrono::Utc.with_ymd_and_hms(2026, 2, 6, 12, 0, 0).unwrap()
 );
 
+// --- Combined: HH:MM ranges with minutes ---
+
+range_test!(
+    fr_hier_de_hhmm_a_hhmm,
+    "fr",
+    "hier de 10:15 \u{e0} 13:45",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    fr_hier_de_hhmm_dash_hhmm,
+    "fr",
+    "hier de 9:00 - 11:30",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 9, 0, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 11, 30, 0).unwrap()
+);
+
+range_test!(
+    fr_hier_hhmm_dash_hhmm,
+    "fr",
+    "hier 10:15 - 13:45",
+    ExpressionKind::Combined,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 6, 13, 45, 0).unwrap()
+);
+
+range_test!(
+    fr_de_hhmm_a_hhmm,
+    "fr",
+    "de 10:15 \u{e0} 13:45",
+    ExpressionKind::TimeRange,
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 10, 15, 0).unwrap(),
+    chrono::Utc.with_ymd_and_hms(2026, 2, 7, 13, 45, 0).unwrap()
+);
+
 // --- Embedding ---
 
 kind_test!(

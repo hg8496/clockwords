@@ -100,6 +100,18 @@ impl French {
 /// Shared weekday pattern
 const WEEKDAY_PAT: &str = r"lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche";
 
+/// Parse a HH:MM–HH:MM range from captures with groups `fh`, `fm`, `th`, `tm`.
+fn parse_hm_range(caps: &regex::Captures) -> Option<(u32, u32, u32, u32)> {
+    let fh = caps.name("fh")?.as_str().parse::<u32>().ok()?;
+    let fm = caps.name("fm")?.as_str().parse::<u32>().ok()?;
+    let th = caps.name("th")?.as_str().parse::<u32>().ok()?;
+    let tm = caps.name("tm")?.as_str().parse::<u32>().ok()?;
+    if fh > 23 || fm > 59 || th > 23 || tm > 59 {
+        return None;
+    }
+    Some((fh, fm, th, tm))
+}
+
 /// Parse hour and optional minutes from captures (24h format).
 /// Supports both `Xh30` / `X:30` (colon/h with digits) and bare `Xh` forms.
 fn parse_hm(caps: &regex::Captures) -> Option<(u32, u32)> {
@@ -139,6 +151,50 @@ fn build_rules() -> Vec<GrammarRule> {
                 let (h, m) = parse_hm(caps)?;
                 let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
                 resolve::resolve_time_on_date(date, h, m, tz)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "de HH:MM à/- HH:MM"
+        //  "vendredi dernier de 10:15 à 13:45", "vendredi dernier de 9:00 - 11:30"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:le\s+)?(?P<day>{wd})\s+(?P<dir>prochain|dernier)\s+de\s+(?P<fh>\d{{1,2}}):(?P<fm>\d{{2}})\s*(?:[àa]|-)\s*(?P<th>\d{{1,2}}):(?P<tm>\d{{2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let direction = match caps.name("dir")?.as_str().to_lowercase().as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
+            },
+        },
+        // ============================================================
+        //  Combined: Weekday (post-positive) + "HH:MM - HH:MM" (bare dash)
+        //  "vendredi dernier 9:00 - 11:30"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?:le\s+)?(?P<day>{wd})\s+(?P<dir>prochain|dernier)\s+(?P<fh>\d{{1,2}}):(?P<fm>\d{{2}})\s*-\s*(?P<th>\d{{1,2}}):(?P<tm>\d{{2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let direction = match caps.name("dir")?.as_str().to_lowercase().as_str() {
+                    "prochain" => 1,
+                    "dernier" => -1,
+                    _ => return None,
+                };
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
             },
         },
         // ============================================================
@@ -182,6 +238,22 @@ fn build_rules() -> Vec<GrammarRule> {
             },
         },
         // ============================================================
+        //  Combined: "ce lundi de 10:15 à 13:45", "ce lundi de 9:00 - 11:30"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\bce\s+(?P<day>{wd})\s+de\s+(?P<fh>\d{{1,2}}):(?P<fm>\d{{2}})\s*(?:[àa]|-)\s*(?P<th>\d{{1,2}}):(?P<tm>\d{{2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let weekday = parse_weekday(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_weekday_date(weekday, 0, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
+            },
+        },
+        // ============================================================
         //  Combined: "ce lundi entre 9 et 12 heures"
         // ============================================================
         GrammarRule {
@@ -211,6 +283,34 @@ fn build_rules() -> Vec<GrammarRule> {
                 let (h, m) = parse_hm(caps)?;
                 let date = resolve::resolve_day_offset(offset, now, tz)?;
                 resolve::resolve_time_on_date(date, h, m, tz)
+            },
+        },
+        // --- Combined: "hier de 10:15 à 13:45", "hier de 9:00 - 11:30" ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?P<day>aujourd['\u{2019}]hui|demain|hier)\s+de\s+(?P<fh>\d{1,2}):(?P<fm>\d{2})\s*(?:[àa]|-)\s*(?P<th>\d{1,2}):(?P<tm>\d{2})\b",
+            )
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let offset = day_keyword_offset(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_day_offset(offset, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
+            },
+        },
+        // --- Combined: "hier 10:15 - 13:45" (day + bare dash) ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?P<day>aujourd['\u{2019}]hui|demain|hier)\s+(?P<fh>\d{1,2}):(?P<fm>\d{2})\s*-\s*(?P<th>\d{1,2}):(?P<tm>\d{2})\b",
+            )
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let offset = day_keyword_offset(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_day_offset(offset, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
             },
         },
         // --- Combined: "hier entre 9 et 12 heures" ---
@@ -284,6 +384,18 @@ fn build_rules() -> Vec<GrammarRule> {
                     _ => return None,
                 };
                 resolve::resolve_last_duration(mapped, now)
+            },
+        },
+        // --- Time range: "de 10:15 à 13:45", "de 9:00 - 11:30" ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\bde\s+(?P<fh>\d{1,2}):(?P<fm>\d{2})\s*(?:[àa]|-)\s*(?P<th>\d{1,2}):(?P<tm>\d{2})\b",
+            )
+            .unwrap(),
+            kind: ExpressionKind::TimeRange,
+            resolver: |caps, now, tz| {
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                resolve::resolve_time_range_with_minutes_today(fh, fm, th, tm, now, tz)
             },
         },
         // --- Time range: "entre 9 et 12 heures" ---

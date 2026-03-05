@@ -107,6 +107,45 @@ pub fn resolve_time_range_today(
     resolve_time_range_on_date(now, from_hour, to_hour, tz)
 }
 
+/// Resolve a time range with minute precision on a given date, in the user's timezone.
+///
+/// Returns `None` if any hour >= 24 or minute >= 60.
+pub fn resolve_time_range_with_minutes_on_date(
+    date: DateTime<Utc>,
+    from_hour: u32,
+    from_min: u32,
+    to_hour: u32,
+    to_min: u32,
+    tz: Tz,
+) -> Option<ResolvedTime> {
+    let local_date = date.with_timezone(&tz).date_naive();
+    let start = local_date
+        .and_hms_opt(from_hour, from_min, 0)?
+        .and_local_timezone(tz)
+        .earliest()?
+        .with_timezone(&Utc);
+    let end = local_date
+        .and_hms_opt(to_hour, to_min, 0)?
+        .and_local_timezone(tz)
+        .earliest()?
+        .with_timezone(&Utc);
+    Some(ResolvedTime::Range { start, end })
+}
+
+/// Resolve a time range with minute precision on today's date, in the user's timezone.
+///
+/// Returns `None` if any hour >= 24 or minute >= 60.
+pub fn resolve_time_range_with_minutes_today(
+    from_hour: u32,
+    from_min: u32,
+    to_hour: u32,
+    to_min: u32,
+    now: DateTime<Utc>,
+    tz: Tz,
+) -> Option<ResolvedTime> {
+    resolve_time_range_with_minutes_on_date(now, from_hour, from_min, to_hour, to_min, tz)
+}
+
 /// Convert 12-hour time to 24-hour.
 ///
 /// - `"pm"` with hour < 12 adds 12 (e.g., 3pm → 15).

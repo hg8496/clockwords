@@ -143,6 +143,18 @@ fn parse_hm_ampm(caps: &regex::Captures) -> Option<(u32, u32)> {
     Some((h, min))
 }
 
+/// Parse a HH:MM–HH:MM range from captures with groups `fh`, `fm`, `th`, `tm`.
+fn parse_hm_range(caps: &regex::Captures) -> Option<(u32, u32, u32, u32)> {
+    let fh = caps.name("fh")?.as_str().parse::<u32>().ok()?;
+    let fm = caps.name("fm")?.as_str().parse::<u32>().ok()?;
+    let th = caps.name("th")?.as_str().parse::<u32>().ok()?;
+    let tm = caps.name("tm")?.as_str().parse::<u32>().ok()?;
+    if fh > 23 || fm > 59 || th > 23 || tm > 59 {
+        return None;
+    }
+    Some((fh, fm, th, tm))
+}
+
 /// Parse hour and optional :MM minute from captures (24h format, no am/pm).
 fn parse_hm(caps: &regex::Captures) -> Option<(u32, u32)> {
     let h = caps.name("hour")?.as_str().parse::<u32>().ok()?;
@@ -201,6 +213,24 @@ fn build_rules() -> Vec<GrammarRule> {
             },
         },
         // ============================================================
+        //  Combined: Weekday + HH:MM to/- HH:MM
+        //  "next Monday 9:00 to 11:30", "last Friday 8:30 - 17:00"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(&format!(
+                r"(?i)\b(?P<dir>next|last|this)\s+(?P<wd>{wd})\s+(?:from\s+)?(?P<fh>\d{{1,2}}):(?P<fm>\d{{2}})\s*(?:to\b|-)\s*(?P<th>\d{{1,2}}):(?P<tm>\d{{2}})\b"
+            ))
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let direction = weekday_direction(caps.name("dir")?.as_str())?;
+                let weekday = parse_weekday(caps.name("wd")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_weekday_date(weekday, direction, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
+            },
+        },
+        // ============================================================
         //  Combined: Weekday + from/to range
         //  "last Friday from 9 to eleven", "next Monday from 9 to 5"
         // ============================================================
@@ -254,6 +284,23 @@ fn build_rules() -> Vec<GrammarRule> {
                 if from > 23 || to > 23 { return None; }
                 let date = resolve::resolve_day_offset(offset, now, tz)?;
                 resolve::resolve_time_range_on_date(date, from, to, tz)
+            },
+        },
+        // ============================================================
+        //  Combined: relative day + HH:MM to/- HH:MM
+        //  "today 8:30 to 9:30", "tomorrow 9:00 - 17:00", "yesterday from 10:15 to 11:45"
+        // ============================================================
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\b(?P<day>today|tomorrow|yesterday)\s+(?:from\s+)?(?P<fh>\d{1,2}):(?P<fm>\d{2})\s*(?:to\b|-)\s*(?P<th>\d{1,2}):(?P<tm>\d{2})\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::Combined,
+            resolver: |caps, now, tz| {
+                let offset = day_keyword_offset(caps.name("day")?.as_str())?;
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                let date = resolve::resolve_day_offset(offset, now, tz)?;
+                resolve::resolve_time_range_with_minutes_on_date(date, fh, fm, th, tm, tz)
             },
         },
         // ============================================================
@@ -353,6 +400,18 @@ fn build_rules() -> Vec<GrammarRule> {
                 let to = parse_num(caps.name("to")?.as_str())?;
                 if from > 23 || to > 23 { return None; }
                 resolve::resolve_time_range_today(from, to, now, tz)
+            },
+        },
+        // --- Time range: "from 8:30 to 9:30", "from 10:00 - 11:30" ---
+        GrammarRule {
+            pattern: Regex::new(
+                r"(?i)\bfrom\s+(?P<fh>\d{1,2}):(?P<fm>\d{2})\s*(?:to\b|-)\s*(?P<th>\d{1,2}):(?P<tm>\d{2})\b"
+            )
+            .unwrap(),
+            kind: ExpressionKind::TimeRange,
+            resolver: |caps, now, tz| {
+                let (fh, fm, th, tm) = parse_hm_range(caps)?;
+                resolve::resolve_time_range_with_minutes_today(fh, fm, th, tm, now, tz)
             },
         },
         // --- Time range: "from 9 to 12 (o'clock)" ---
